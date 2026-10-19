@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pushup-v1';
+const CACHE_NAME = 'pushup-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
