@@ -770,18 +770,16 @@
     document.getElementById('stat-current-streak').textContent = `🔥 ${state.streak.current}`;
     document.getElementById('stat-longest-streak').textContent = state.streak.longest;
     
-    let totalReps = 0;
-    let daysWithData = 0;
     let bestSet = 0;
     let bestSession = 0;
     let bestDay = 0;
     
-    const dailyData = [];
+    // Build a lookup map: date string -> { total, morning, evening }
+    const dailyDataMap = {};
 
     workouts.forEach(w => {
       let mTotal = 0;
       let eTotal = 0;
-      let dTotal = 0;
       
       if (w.morning?.sets) {
         w.morning.sets.forEach(s => {
@@ -796,11 +794,9 @@
         });
       }
       
-      dTotal = mTotal + eTotal;
+      const dTotal = mTotal + eTotal;
       if (dTotal > 0) {
-        totalReps += dTotal;
-        daysWithData++;
-        dailyData.push({ date: w.date, total: dTotal, morning: mTotal, evening: eTotal });
+        dailyDataMap[w.date] = { date: w.date, total: dTotal, morning: mTotal, evening: eTotal };
       }
       
       if (mTotal > bestSession) bestSession = mTotal;
@@ -808,16 +804,41 @@
       if (dTotal > bestDay) bestDay = dTotal;
     });
 
-    const avg = daysWithData > 0 ? (totalReps / daysWithData).toFixed(1) : '0.0';
+    // All days with data in chronological order (used for the 'all' range)
+    const dailyData = Object.values(dailyDataMap).sort((a, b) => a.date.localeCompare(b.date));
+
+    // Compute range-aware Total Reps and Daily Average
+    const todayStr = Dates.formatDate(Dates.getEffectiveDate());
+    const rangeStr = state.chartRange;
+    let rangeStartStr;
+    let rangeDays; // total days in the window for averaging
+
+    if (rangeStr === 'all') {
+      rangeStartStr = dailyData.length > 0 ? dailyData[0].date : todayStr;
+      rangeDays = Dates.daysBetween(new Date(rangeStartStr), new Date(todayStr)) + 1;
+    } else {
+      const numDays = parseInt(rangeStr, 10);
+      rangeStartStr = Dates.formatDate(Dates.addDays(Dates.getEffectiveDate(), -(numDays - 1)));
+      rangeDays = numDays;
+    }
+
+    let rangeTotalReps = 0;
+    dailyData.forEach(d => {
+      if (d.date >= rangeStartStr && d.date <= todayStr) {
+        rangeTotalReps += d.total;
+      }
+    });
+
+    const rangeAvg = rangeDays > 0 ? (rangeTotalReps / rangeDays).toFixed(1) : '0.0';
     
-    document.getElementById('stat-total-reps').textContent = totalReps;
-    document.getElementById('stat-daily-avg').textContent = avg;
+    document.getElementById('stat-total-reps').textContent = rangeTotalReps;
+    document.getElementById('stat-daily-avg').textContent = rangeAvg;
     
     document.getElementById('record-set').textContent = bestSet;
     document.getElementById('record-session').textContent = bestSession;
     document.getElementById('record-day').textContent = bestDay;
 
-    renderCharts(dailyData, state.chartRange);
+    renderCharts(dailyData, rangeStr);
   }
 
   function calculateRollingAverage(dataArray, windowSize) {
@@ -837,13 +858,42 @@
   function renderCharts(dailyData, rangeStr) {
     if (!window.Chart) return;
 
-    // Filter by range
-    let filteredData = dailyData;
-    if (rangeStr !== 'all') {
-        const days = parseInt(rangeStr, 10);
-        if (!isNaN(days) && days > 0) {
-            filteredData = dailyData.slice(-days);
-        }
+    // Build a quick lookup: date string -> entry
+    const dataByDate = {};
+    dailyData.forEach(d => { dataByDate[d.date] = d; });
+
+    const todayDate = Dates.getEffectiveDate();
+    const todayStr = Dates.formatDate(todayDate);
+
+    // Determine start date for range
+    let startDate;
+    if (rangeStr === 'all') {
+      if (dailyData.length > 0) {
+        // Start from the earliest date with data
+        startDate = new Date(dailyData[0].date);
+      } else {
+        startDate = new Date(todayDate);
+      }
+    } else {
+      const numDays = parseInt(rangeStr, 10);
+      startDate = Dates.addDays(todayDate, -(numDays - 1));
+    }
+
+    // Build zero-filled array covering every day from startDate to today
+    const filteredData = [];
+    const cursor = new Date(startDate);
+    cursor.setHours(0, 0, 0, 0);
+    const endDate = new Date(todayDate);
+    endDate.setHours(0, 0, 0, 0);
+
+    while (cursor <= endDate) {
+      const dateStr = Dates.formatDate(cursor);
+      if (dataByDate[dateStr]) {
+        filteredData.push(dataByDate[dateStr]);
+      } else {
+        filteredData.push({ date: dateStr, total: 0, morning: 0, evening: 0 });
+      }
+      cursor.setDate(cursor.getDate() + 1);
     }
 
     const labels = filteredData.map(d => d.date.substring(5)); // MM-DD
