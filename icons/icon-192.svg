@@ -1,17 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" rx="40" fill="#000000"/>
-  <g transform="translate(96, 96)">
-    <!-- Stylized push-up figure -->
-    <circle cx="0" cy="-32" r="14" fill="#4a9eff"/>
-    <!-- Body line -->
-    <line x1="0" y1="-18" x2="0" y2="18" stroke="#4a9eff" stroke-width="6" stroke-linecap="round"/>
-    <!-- Arms -->
-    <line x1="0" y1="-8" x2="-26" y2="12" stroke="#4a9eff" stroke-width="5" stroke-linecap="round"/>
-    <line x1="0" y1="-8" x2="26" y2="12" stroke="#4a9eff" stroke-width="5" stroke-linecap="round"/>
-    <!-- Legs -->
-    <line x1="0" y1="18" x2="-18" y2="40" stroke="#4a9eff" stroke-width="5" stroke-linecap="round"/>
-    <line x1="0" y1="18" x2="18" y2="40" stroke="#4a9eff" stroke-width="5" stroke-linecap="round"/>
-    <!-- Up arrow -->
-    <polygon points="0,-56 -10,-46 10,-46" fill="#34c759"/>
+<svg id="emom-timer-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" fill="none">
+  <defs>
+    <linearGradient id="accent-a" x1="80" y1="80" x2="400" y2="380" gradientUnits="userSpaceOnUse">
+      <stop id="stop-1" offset="0%" stop-color="#FF8800"/>
+      <stop id="stop-2" offset="45%" stop-color="#FF4D00"/>
+      <stop id="stop-3" offset="100%" stop-color="#FF2A00"/>
+    </linearGradient>
+
+    <filter id="glow-a" filterUnits="userSpaceOnUse" x="-40" y="-40" width="592" height="592">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="#07090E" rx="0"/>
+
+
+  <!-- Inaktiver 60s-Ring & dezente 15s-Markierungen -->
+  <circle cx="256" cy="256" r="176" stroke="#222836" stroke-width="28"/>
+  <g stroke="#333C4D" stroke-width="6" stroke-linecap="round">
+    <line x1="256" y1="42" x2="256" y2="54"/>
+    <line x1="470" y1="256" x2="458" y2="256"/>
+    <line x1="256" y1="470" x2="256" y2="458"/>
+    <line x1="42" y1="256" x2="54" y2="256"/>
+  </g>
+
+  <!-- Bodenlinie (blendet beim Start des Timers sanft aus) -->
+  <line id="floor-line" x1="156" y1="344" x2="360" y2="344" stroke="#2A3142" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Leuchtende Hauptgruppe (Unrotierter Pfad = 100% identischer Gradient) -->
+  <g filter="url(#glow-a)">
+    <path id="emom-ring"
+          d="M 256 80 A 176 176 0 1 1 256 432 A 176 176 0 1 1 256 80"
+          stroke="url(#accent-a)" stroke-width="28" stroke-linecap="round"
+          stroke-dasharray="737.23 1105.84" stroke-dashoffset="0"/>
+
+    <path id="plank-path"
+          d="M 103.58 344 L 304 220 L 304 344"
+          stroke="url(#accent-a)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"
+          stroke-dasharray="360 360" stroke-dashoffset="0"/>
+
+    <circle id="head-node" cx="352" cy="190" r="22" fill="url(#accent-a)"/>
+  </g>
+
+  <!-- 12-Uhr-Punkt & mitlaufender Timer-Spitzenpunkt -->
+  <circle cx="256" cy="80" r="6" fill="#FFFFFF"/>
+  <circle id="timer-tip-dot" cx="103.58" cy="344" r="7" fill="#FFFFFF" opacity="0"/>
+
+  <!-- Minimalistische Sekundenzahl im Zentrum (Ohne Blur/Glow!) -->
+  <g id="timer-hud" opacity="0" transform="scale(0.88)" style="transform-origin: 256px 256px;">
+    <text id="seconds-text" x="256" y="298" text-anchor="middle" fill="#FFFFFF"
+          font-family="Inter, -apple-system, sans-serif" font-weight="700" font-size="120"
+          letter-spacing="-3" style="font-variant-numeric: tabular-nums;">60</text>
   </g>
 </svg>

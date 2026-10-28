@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pushup-v4';
+const CACHE_NAME = 'pushup-v5';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,7 +7,9 @@ const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/vendor/chart.umd.min.js',
   '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/icons/icon-512.png',
+  '/apple-touch-icon.png',
+  '/emom-timer.svg'
 ];
 
 self.addEventListener('install', (event) => {
