@@ -109,15 +109,15 @@
   <!-- ===================================================================== -->
   <!-- IPHONE 16 PRO FRAME (Full-screen on Mobile, Framed on Desktop)        -->
   <!-- ===================================================================== -->
-  <div class="relative w-full sm:w-[393px] h-screen sm:h-[852px] bg-app-bg sm:rounded-[54px] sm:border-[10px] sm:border-[#1B202C] sm:shadow-[0_0_0_1px_#090B10,0_30px_90px_rgba(0,0,0,0.9)] flex flex-col justify-between overflow-hidden">
+  <div class="relative w-full sm:w-[393px] h-screen h-[100dvh] sm:h-[852px] bg-app-bg sm:rounded-[54px] sm:border-[10px] sm:border-[#1B202C] sm:shadow-[0_0_0_1px_#090B10,0_30px_90px_rgba(0,0,0,0.9)] flex flex-col justify-between overflow-hidden">
 
     <!-- Subtle Ambient Top Glow -->
     <div id="ambient-glow" class="absolute top-6 left-1/2 -translate-x-1/2 w-[280px] h-[280px] rounded-full bg-laser-orange/10 blur-[75px] pointer-events-none transition-colors duration-500"></div>
 
-    <!-- iOS Status Bar + Dynamic Island -->
-    <div class="relative z-20 pt-3 pb-1 px-7 flex items-center justify-between text-[12px] font-semibold tracking-tight text-white/80 shrink-0">
+    <!-- iOS Status Bar + Dynamic Island (Desktop Frame only) -->
+    <div class="hidden sm:flex relative z-20 pt-3 pb-1 px-7 items-center justify-between text-[12px] font-semibold tracking-tight text-white/80 shrink-0">
       <span id="status-bar-time" class="tabular-nums">09:41</span>
-      <div class="hidden sm:flex items-center justify-center w-[108px] h-[28px] bg-black rounded-full border border-white/5"></div>
+      <div class="flex items-center justify-center w-[108px] h-[28px] bg-black rounded-full border border-white/5"></div>
       <div class="flex items-center gap-1.5 text-white/80">
         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 17h2v4H2v-4zm4-5h2v9H6v-9zm4-4h2v13h-2V8zm4-4h2v17h-2V4zm4 7h2v10h-2V11z"/></svg>
         <div class="w-5 h-2.5 rounded-[3px] border border-white/40 p-0.5 flex items-center">
@@ -125,6 +125,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Native iOS Safe Area Top Spacer (Mobile only: clears Apple's native clock, battery & Dynamic Island) -->
+    <div class="sm:hidden w-full shrink-0 pointer-events-none" style="height: max(env(safe-area-inset-top, 0px), 16px);"></div>
 
     <!-- =================================================================== -->
     <!-- PERSISTENT APP HEADER (Shown on Today & Stats, hidden on EMOM Hero) -->
@@ -632,7 +635,8 @@
     <!-- =================================================================== -->
     <!-- BOTTOM 3-TAB iOS NAVIGATION BAR (Today | EMOM | Stats)              -->
     <!-- =================================================================== -->
-    <nav class="relative z-20 bg-app-bg/95 backdrop-blur-md border-t border-white/[0.06] px-6 pt-2.5 pb-6 flex items-center justify-around shrink-0">
+    <nav class="relative z-20 bg-app-bg/95 backdrop-blur-md border-t border-white/[0.06] px-6 pt-2.5 flex items-center justify-around shrink-0"
+         style="padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);">
 
       <!-- Tab 1 (Left): Today Sessions -->
       <button id="nav-today" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 tap-btn">
@@ -660,8 +664,8 @@
         <span class="text-[10px] font-semibold">Stats</span>
       </button>
 
-      <!-- iOS Home Indicator -->
-      <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 rounded-full bg-white/20 pointer-events-none"></div>
+      <!-- iOS Home Indicator (Desktop Frame only) -->
+      <div class="hidden sm:block absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 rounded-full bg-white/20 pointer-events-none"></div>
     </nav>
 
   </div>
