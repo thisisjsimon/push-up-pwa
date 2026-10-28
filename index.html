@@ -84,6 +84,7 @@
                 <div class="selected-day-details" id="selected-day-details">
                     <div class="detail-row"><span>Morning:</span> <span id="detail-morning">0</span></div>
                     <div class="detail-row"><span>Evening:</span> <span id="detail-evening">0</span></div>
+                    <div class="detail-row"><span>EMOM:</span> <span id="detail-emom">—</span></div>
                     <div class="detail-row total"><span>Total:</span> <span id="detail-total">0</span></div>
                 </div>
                 
@@ -167,6 +168,77 @@
                     <span>Best Day</span>
                     <span id="record-day" class="record-value">0</span>
                 </div>
+                <div class="record-row">
+                    <span>Bestes EMOM</span>
+                    <span id="record-emom" class="record-value">—</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- EMOM VIEW -->
+        <section id="view-emom" class="view" role="region" aria-label="EMOM Training">
+
+            <!-- Setup panel -->
+            <div id="emom-setup">
+                <div class="view-header">
+                    <h2>⏱️ EMOM</h2>
+                </div>
+                <p class="emom-subtitle">Every Minute On the Minute</p>
+
+                <div class="card emom-config-card">
+                    <div class="emom-config-label">Wiederholungen pro Minute</div>
+                    <div class="emom-presets">
+                        <button class="emom-preset-btn" data-reps="5" aria-label="5 Reps preset">5</button>
+                        <button class="emom-preset-btn active" data-reps="10" aria-label="10 Reps preset">10</button>
+                        <button class="emom-preset-btn" data-reps="15" aria-label="15 Reps preset">15</button>
+                        <button class="emom-preset-btn" data-reps="20" aria-label="20 Reps preset">20</button>
+                    </div>
+                    <input type="number" id="emom-target-reps" class="rep-input emom-reps-input"
+                           inputmode="numeric" pattern="[0-9]*" value="10" min="1" max="999"
+                           aria-label="Ziel-Wiederholungen pro Minute">
+                </div>
+
+                <button id="btn-emom-start" class="btn-primary btn-large btn-full" aria-label="EMOM starten">
+                    🚀 EMOM starten
+                </button>
+            </div>
+
+            <!-- Active workout panel -->
+            <div id="emom-active" class="hidden">
+
+                <div class="emom-round-header">
+                    Runde <span id="emom-round-num">1</span>
+                </div>
+
+                <!-- SVG Circular Timer -->
+                <div class="emom-timer-wrap">
+                    <svg class="emom-ring-svg" viewBox="0 0 120 120" aria-hidden="true">
+                        <circle class="emom-ring-track" cx="60" cy="60" r="52"/>
+                        <circle class="emom-ring-fill" id="emom-ring-fill" cx="60" cy="60" r="52"/>
+                    </svg>
+                    <div class="emom-timer-center">
+                        <span id="emom-seconds" class="emom-seconds-num">60</span>
+                        <span class="emom-seconds-unit">s</span>
+                    </div>
+                </div>
+
+                <div class="emom-info-row">
+                    Ziel: <strong id="emom-target-display">10</strong> Reps / Runde
+                </div>
+                <div class="emom-info-row emom-progress-row">
+                    <span id="emom-completed-rounds">0</span> Runden &nbsp;·&nbsp;
+                    <span id="emom-completed-reps">0</span> Reps
+                </div>
+
+                <button id="btn-emom-done" class="btn-primary btn-large btn-full emom-btn-done"
+                        aria-label="Runde als geschafft markieren">
+                    ✅ Runde geschafft!
+                </button>
+                <button id="btn-emom-abort" class="btn-secondary btn-full emom-btn-abort"
+                        aria-label="EMOM Workout beenden">
+                    ⏹ Workout beenden
+                </button>
+
             </div>
         </section>
 
@@ -181,6 +253,10 @@
         <button class="tab-btn" data-target="view-history" aria-label="History Tab">
             <span class="tab-icon">📅</span>
             <span class="tab-label">History</span>
+        </button>
+        <button class="tab-btn" data-target="view-emom" aria-label="EMOM Tab">
+            <span class="tab-icon">⏱️</span>
+            <span class="tab-label">EMOM</span>
         </button>
         <button class="tab-btn" data-target="view-stats" aria-label="Stats Tab">
             <span class="tab-icon">📊</span>

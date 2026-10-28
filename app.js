@@ -422,7 +422,200 @@
   };
 
   // ==========================================
-  // 6. UI RENDERERS & CONTROLLERS
+  // 6. EMOM TRACKER
+  // ==========================================
+
+  /**
+   * Self-contained EMOM (Every Minute On the Minute) training module.
+   * Manages timer state, wake lock, UI updates and DB persistence.
+   */
+  const EmomTracker = {
+    // --- Config ---
+    targetReps: 10,
+
+    // --- Runtime state ---
+    currentRound: 1,
+    completedRounds: 0,
+    secondsLeft: 60,
+    roundCompleted: false, // true once "Runde geschafft" clicked in current minute
+    intervalId: null,
+    wakeLock: null,
+
+    // SVG ring constants (r = 52)
+    CIRCUMFERENCE: 2 * Math.PI * 52, // ≈ 326.73
+
+    // --- Wake Lock helpers ---
+    async _acquireWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          this.wakeLock = await navigator.wakeLock.request('screen');
+          this.wakeLock.addEventListener('release', () => {
+            this.wakeLock = null;
+          });
+        } catch (err) {
+          console.warn('Wake Lock nicht verfügbar:', err.message);
+        }
+      }
+    },
+
+    async _releaseWakeLock() {
+      if (this.wakeLock) {
+        try { await this.wakeLock.release(); } catch (_) {}
+        this.wakeLock = null;
+      }
+    },
+
+    // --- Start ---
+    async start(targetReps) {
+      this.targetReps = targetReps;
+      this.currentRound = 1;
+      this.completedRounds = 0;
+      this.secondsLeft = 60;
+      this.roundCompleted = false;
+
+      await this._acquireWakeLock();
+
+      // Show active panel
+      document.getElementById('emom-setup').classList.add('hidden');
+      document.getElementById('emom-active').classList.remove('hidden');
+
+      // Reset "Runde geschafft" button state
+      const doneBtn = document.getElementById('btn-emom-done');
+      if (doneBtn) { doneBtn.disabled = false; doneBtn.classList.remove('emom-round-done'); }
+
+      this._updateUI();
+
+      this.intervalId = setInterval(() => this._tick(), 1000);
+    },
+
+    // --- Tick (1 s) ---
+    _tick() {
+      this.secondsLeft--;
+
+      if (this.secondsLeft <= 0) {
+        // Current round over — advance to next regardless of whether it was "geschafft"
+        this.currentRound++;
+        this.secondsLeft = 60;
+        this.roundCompleted = false;
+
+        // Re-enable "Runde geschafft" button for new round
+        const doneBtn = document.getElementById('btn-emom-done');
+        if (doneBtn) { doneBtn.disabled = false; doneBtn.classList.remove('emom-round-done'); }
+      }
+
+      this._updateUI();
+    },
+
+    // --- "Runde geschafft" clicked ---
+    completeRound() {
+      if (this.roundCompleted) return; // already credited this minute
+      this.roundCompleted = true;
+      this.completedRounds++;
+
+      // Disable button for the rest of this minute (pause time)
+      const doneBtn = document.getElementById('btn-emom-done');
+      if (doneBtn) { doneBtn.disabled = true; doneBtn.classList.add('emom-round-done'); }
+
+      this._updateUI();
+      Toast.show(`Runde ${this.completedRounds} ✅  +${this.targetReps} Reps`, 'success', 1800);
+    },
+
+    // --- Stop & save ---
+    async abort() {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+      await this._releaseWakeLock();
+
+      if (this.completedRounds > 0) {
+        await this._save();
+      } else {
+        Toast.show('EMOM beendet — keine Runden gezählt.', 'info');
+      }
+
+      // Back to setup
+      document.getElementById('emom-active').classList.add('hidden');
+      document.getElementById('emom-setup').classList.remove('hidden');
+    },
+
+    async _save() {
+      const totalReps = this.completedRounds * this.targetReps;
+      const session = {
+        targetRepsPerMinute: this.targetReps,
+        completedRounds: this.completedRounds,
+        totalReps,
+        failedRoundReps: 0,
+        timestamp: new Date().toISOString()
+      };
+
+      const todayStr = Dates.formatDate(Dates.getEffectiveDate());
+      const wData = (await DB.getWorkout(todayStr)) || createEmptyWorkout(todayStr);
+      if (!Array.isArray(wData.emom)) wData.emom = [];
+      wData.emom.push(session);
+
+      await DB.saveWorkout(wData);
+      Store.setState({ todayData: wData });
+      await Streak.update();
+
+      Toast.show(
+        `EMOM gespeichert 💪  ${this.completedRounds} Runden · ${totalReps} Reps`,
+        'success', 4000
+      );
+    },
+
+    // --- UI update ---
+    _updateUI() {
+      // Ring progress: full at 60 s, empty at 0 s
+      const dashoffset = this.CIRCUMFERENCE * (1 - this.secondsLeft / 60);
+      const ring = document.getElementById('emom-ring-fill');
+      if (ring) {
+        ring.style.strokeDashoffset = dashoffset;
+        // Colour warning cues
+        if (this.secondsLeft <= 10) {
+          ring.style.stroke = '#ff453a';       // danger
+        } else if (this.secondsLeft <= 20) {
+          ring.style.stroke = '#ff9f0a';       // warning
+        } else if (this.roundCompleted) {
+          ring.style.stroke = '#34c759';       // success (pause arc)
+        } else {
+          ring.style.stroke = '#4a9eff';       // primary
+        }
+      }
+
+      const secEl = document.getElementById('emom-seconds');
+      if (secEl) secEl.textContent = this.secondsLeft;
+
+      // Pulse animation on last 10 s
+      if (secEl) {
+        if (this.secondsLeft <= 10 && !this.roundCompleted) {
+          secEl.classList.add('emom-pulse');
+        } else {
+          secEl.classList.remove('emom-pulse');
+        }
+      }
+
+      const roundEl = document.getElementById('emom-round-num');
+      if (roundEl) roundEl.textContent = this.currentRound;
+
+      const compRoundsEl = document.getElementById('emom-completed-rounds');
+      if (compRoundsEl) compRoundsEl.textContent = this.completedRounds;
+
+      const compRepsEl = document.getElementById('emom-completed-reps');
+      if (compRepsEl) compRepsEl.textContent = this.completedRounds * this.targetReps;
+
+      const targetEl = document.getElementById('emom-target-display');
+      if (targetEl) targetEl.textContent = this.targetReps;
+    }
+  };
+
+  // Re-acquire wake lock when page becomes visible again (iOS drops it on hide)
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && EmomTracker.intervalId && !EmomTracker.wakeLock) {
+      await EmomTracker._acquireWakeLock();
+    }
+  });
+
+  // ==========================================
+  // 7. UI RENDERERS & CONTROLLERS
   // ==========================================
   
   function updateDOM() {
@@ -435,7 +628,7 @@
     }
 
     // Toggle views based on currentView
-    ['view-today', 'view-history', 'view-stats'].forEach(v => {
+    ['view-today', 'view-history', 'view-stats', 'view-emom'].forEach(v => {
       const viewEl = document.getElementById(v);
       if (viewEl) {
         if (state.currentView === v) {
@@ -462,6 +655,7 @@
     } else if (state.currentView === 'view-stats') {
       renderStatsView();
     }
+    // view-emom is self-managed by EmomTracker (no re-render on state change needed)
   }
 
   // --- Today View ---
@@ -611,8 +805,9 @@
 
     const morningTotal = (data.morning.sets || []).reduce((s, x) => s + (x.reps || 0), 0);
     const eveningTotal = (data.evening.sets || []).reduce((s, x) => s + (x.reps || 0), 0);
+    const emomTotal    = (data.emom || []).reduce((s, e) => s + (e.totalReps || 0), 0);
     const totalDisplay = document.getElementById('total-daily');
-    if (totalDisplay) totalDisplay.textContent = morningTotal + eveningTotal;
+    if (totalDisplay) totalDisplay.textContent = morningTotal + eveningTotal + emomTotal;
   }
 
   function handleSetInputChange(e) {
@@ -932,9 +1127,20 @@
         const mTotal = calcTotal(data?.morning);
         const eTotal = calcTotal(data?.evening);
 
+        // EMOM sessions for this day
+        const emomSessions = data?.emom || [];
+        const emomTotal = emomSessions.reduce((s, e) => s + (e.totalReps || 0), 0);
+        const emomRounds = emomSessions.reduce((s, e) => s + (e.completedRounds || 0), 0);
+
         document.getElementById('detail-morning').textContent = `${mTotal} reps`;
         document.getElementById('detail-evening').textContent = `${eTotal} reps`;
-        document.getElementById('detail-total').textContent = `${mTotal + eTotal} reps`;
+        const emomEl = document.getElementById('detail-emom');
+        if (emomEl) {
+          emomEl.textContent = emomSessions.length > 0
+            ? `${emomRounds} Runden · ${emomTotal} Reps`
+            : '—';
+        }
+        document.getElementById('detail-total').textContent = `${mTotal + eTotal + emomTotal} reps`;
     }
   }
 
@@ -1006,6 +1212,9 @@
     let bestSet = 0;
     let bestSession = 0;
     let bestDay = 0;
+    // Best EMOM: track by most completed rounds (tie-break: most reps)
+    let bestEmomRounds = 0;
+    let bestEmomReps = 0;
     
     // Build a lookup map: date string -> { total, morning, evening }
     const dailyDataMap = {};
@@ -1013,6 +1222,7 @@
     workouts.forEach(w => {
       let mTotal = 0;
       let eTotal = 0;
+      let emomDayTotal = 0;
       
       if (w.morning?.sets) {
         w.morning.sets.forEach(s => {
@@ -1026,8 +1236,20 @@
           if (s.reps > bestSet) bestSet = s.reps;
         });
       }
+      if (Array.isArray(w.emom)) {
+        w.emom.forEach(sess => {
+          const sr = sess.totalReps || 0;
+          const scr = sess.completedRounds || 0;
+          emomDayTotal += sr;
+          // Better EMOM = more rounds; tie-break = more reps
+          if (scr > bestEmomRounds || (scr === bestEmomRounds && sr > bestEmomReps)) {
+            bestEmomRounds = scr;
+            bestEmomReps = sr;
+          }
+        });
+      }
       
-      const dTotal = mTotal + eTotal;
+      const dTotal = mTotal + eTotal + emomDayTotal;
       if (dTotal > 0) {
         dailyDataMap[w.date] = { date: w.date, total: dTotal, morning: mTotal, evening: eTotal };
       }
@@ -1070,6 +1292,14 @@
     document.getElementById('record-set').textContent = bestSet;
     document.getElementById('record-session').textContent = bestSession;
     document.getElementById('record-day').textContent = bestDay;
+
+    // EMOM record
+    const emomRecordEl = document.getElementById('record-emom');
+    if (emomRecordEl) {
+      emomRecordEl.textContent = bestEmomRounds > 0
+        ? `${bestEmomRounds} Runden · ${bestEmomReps} Reps`
+        : '—';
+    }
 
     renderCharts(dailyData, rangeStr);
   }
@@ -1340,6 +1570,56 @@
     if (btnSaveEdit) btnSaveEdit.addEventListener('click', saveRetroactiveEdit);
 
     setupSettings();
+
+    // --- EMOM Event Listeners ---
+    // Preset buttons (5 / 10 / 15 / 20)
+    document.querySelectorAll('.emom-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const reps = parseInt(btn.dataset.reps, 10);
+        const input = document.getElementById('emom-target-reps');
+        if (input) input.value = reps;
+        document.querySelectorAll('.emom-preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // Deselect presets when the free-text input is changed manually
+    document.getElementById('emom-target-reps')?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      document.querySelectorAll('.emom-preset-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.reps, 10) === val);
+      });
+    });
+
+    // Start button
+    document.getElementById('btn-emom-start')?.addEventListener('click', () => {
+      const repsInput = document.getElementById('emom-target-reps');
+      let reps = parseInt(repsInput?.value, 10) || 10;
+      if (reps < 1) reps = 1;
+      if (reps > 999) reps = 999;
+      EmomTracker.start(reps);
+    });
+
+    // "Runde geschafft"
+    document.getElementById('btn-emom-done')?.addEventListener('click', () => {
+      EmomTracker.completeRound();
+    });
+
+    // "Workout beenden"
+    document.getElementById('btn-emom-abort')?.addEventListener('click', () => {
+      if (EmomTracker.completedRounds > 0) {
+        const totalReps = EmomTracker.completedRounds * EmomTracker.targetReps;
+        if (confirm(
+          `Workout beenden?\n${EmomTracker.completedRounds} Runden (${totalReps} Reps) werden gespeichert.\n` +
+          `Die aktuelle Runde ${EmomTracker.currentRound} zählt 0.`
+        )) {
+          EmomTracker.abort();
+        }
+      } else {
+        // No rounds done yet — abort silently
+        EmomTracker.abort();
+      }
+    });
 
     // Auto-save on visibility change / beforeunload
     const handleAutoSave = () => {
