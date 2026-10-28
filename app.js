@@ -92,6 +92,13 @@
 
           request.onsuccess = (event) => {
             db = event.target.result;
+            // Request persistent storage to protect IndexedDB from automatic
+            // eviction by the browser (especially important on Safari/iOS).
+            if (navigator.storage && navigator.storage.persist) {
+              navigator.storage.persist().then((persistent) => {
+                console.log('Storage persistent:', persistent);
+              });
+            }
             resolve();
           };
 
