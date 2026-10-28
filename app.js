@@ -1,9 +1,9 @@
 (() => {
   'use strict';
 
-  // ==========================================
+  // ============================================================
   // 1. DATE UTILITIES
-  // ==========================================
+  // ============================================================
   const Dates = {
     formatDate(date) {
       const d = new Date(date);
@@ -16,13 +16,12 @@
       const options = { weekday: 'long', month: 'short', day: 'numeric' };
       return new Date(date).toLocaleDateString('en-US', options);
     },
-    formatMonthYear(date) {
-      const options = { month: 'long', year: 'numeric' };
-      return new Date(date).toLocaleDateString('en-US', options);
+    formatMMDD(date) {
+      const d = new Date(date);
+      return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     },
     isToday(date) {
-      const today = Dates.getEffectiveDate();
-      return Dates.formatDate(date) === Dates.formatDate(today);
+      return Dates.formatDate(date) === Dates.formatDate(Dates.getEffectiveDate());
     },
     isFutureDate(date) {
       const today = Dates.getEffectiveDate();
@@ -33,18 +32,11 @@
     },
     getEffectiveDate() {
       const now = new Date();
-      const hours = now.getHours();
       // 00:00 to 03:00 belongs to yesterday
-      if (hours >= 0 && hours < 3) {
+      if (now.getHours() >= 0 && now.getHours() < 3) {
         now.setDate(now.getDate() - 1);
       }
       return now;
-    },
-    getDaysInMonth(year, month) {
-      return new Date(year, month + 1, 0).getDate();
-    },
-    getFirstDayOfMonth(year, month) {
-      return new Date(year, month, 1).getDay();
     },
     daysBetween(date1, date2) {
       const oneDay = 24 * 60 * 60 * 1000;
@@ -61,9 +53,9 @@
     }
   };
 
-  // ==========================================
+  // ============================================================
   // 2. DATABASE LAYER
-  // ==========================================
+  // ============================================================
   const DB = (() => {
     let db = null;
     const DB_NAME = 'pushup-discipline';
@@ -81,34 +73,22 @@
             resolve();
             return;
           }
-
           const request = window.indexedDB.open(DB_NAME, DB_VERSION);
-
-          request.onerror = (event) => {
-            console.error('IndexedDB error:', event.target.error);
-            useLocalStorage = true;
-            resolve();
-          };
-
-          request.onsuccess = (event) => {
-            db = event.target.result;
-            // Request persistent storage to protect IndexedDB from automatic
-            // eviction by the browser (especially important on Safari/iOS).
+          request.onerror = () => { useLocalStorage = true; resolve(); };
+          request.onsuccess = (e) => {
+            db = e.target.result;
             if (navigator.storage && navigator.storage.persist) {
-              navigator.storage.persist().then((persistent) => {
-                console.log('Storage persistent:', persistent);
-              });
+              navigator.storage.persist();
             }
             resolve();
           };
-
-          request.onupgradeneeded = (event) => {
-            const dbInstance = event.target.result;
-            if (!dbInstance.objectStoreNames.contains(STORE_WORKOUTS)) {
-              dbInstance.createObjectStore(STORE_WORKOUTS, { keyPath: 'date' });
+          request.onupgradeneeded = (e) => {
+            const dbInst = e.target.result;
+            if (!dbInst.objectStoreNames.contains(STORE_WORKOUTS)) {
+              dbInst.createObjectStore(STORE_WORKOUTS, { keyPath: 'date' });
             }
-            if (!dbInstance.objectStoreNames.contains(STORE_META)) {
-              dbInstance.createObjectStore(STORE_META, { keyPath: 'key' });
+            if (!dbInst.objectStoreNames.contains(STORE_META)) {
+              dbInst.createObjectStore(STORE_META, { keyPath: 'key' });
             }
           };
         });
@@ -122,11 +102,10 @@
             return;
           }
           if (!db) return resolve(null);
-          const transaction = db.transaction([STORE_WORKOUTS], 'readonly');
-          const store = transaction.objectStore(STORE_WORKOUTS);
-          const request = store.get(dateStr);
-          request.onsuccess = () => resolve(request.result || null);
-          request.onerror = () => resolve(null);
+          const tx = db.transaction([STORE_WORKOUTS], 'readonly');
+          const req = tx.objectStore(STORE_WORKOUTS).get(dateStr);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
         });
       },
 
@@ -138,11 +117,10 @@
             return;
           }
           if (!db) return reject(new Error('DB not initialized'));
-          const transaction = db.transaction([STORE_WORKOUTS], 'readwrite');
-          const store = transaction.objectStore(STORE_WORKOUTS);
-          const request = store.put(workout);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+          const tx = db.transaction([STORE_WORKOUTS], 'readwrite');
+          const req = tx.objectStore(STORE_WORKOUTS).put(workout);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
         });
       },
 
@@ -161,37 +139,14 @@
             return;
           }
           if (!db) return resolve([]);
-          const transaction = db.transaction([STORE_WORKOUTS], 'readonly');
-          const store = transaction.objectStore(STORE_WORKOUTS);
-          const request = store.getAll();
-          request.onsuccess = () => {
-            const workouts = request.result || [];
+          const tx = db.transaction([STORE_WORKOUTS], 'readonly');
+          const req = tx.objectStore(STORE_WORKOUTS).getAll();
+          req.onsuccess = () => {
+            const workouts = req.result || [];
             workouts.sort((a, b) => a.date.localeCompare(b.date));
             resolve(workouts);
           };
-          request.onerror = () => resolve([]);
-        });
-      },
-
-      getWorkoutsInRange(startDateStr, endDateStr) {
-        return this.getAllWorkouts().then(workouts => {
-          return workouts.filter(w => w.date >= startDateStr && w.date <= endDateStr);
-        });
-      },
-
-      deleteWorkout(dateStr) {
-        return new Promise((resolve, reject) => {
-          if (useLocalStorage) {
-            localStorage.removeItem(`workout_${dateStr}`);
-            resolve();
-            return;
-          }
-          if (!db) return reject(new Error('DB not initialized'));
-          const transaction = db.transaction([STORE_WORKOUTS], 'readwrite');
-          const store = transaction.objectStore(STORE_WORKOUTS);
-          const request = store.delete(dateStr);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+          req.onerror = () => resolve([]);
         });
       },
 
@@ -203,11 +158,10 @@
             return;
           }
           if (!db) return resolve(null);
-          const transaction = db.transaction([STORE_META], 'readonly');
-          const store = transaction.objectStore(STORE_META);
-          const request = store.get(key);
-          request.onsuccess = () => resolve(request.result ? request.result.value : null);
-          request.onerror = () => resolve(null);
+          const tx = db.transaction([STORE_META], 'readonly');
+          const req = tx.objectStore(STORE_META).get(key);
+          req.onsuccess = () => resolve(req.result ? req.result.value : null);
+          req.onerror = () => resolve(null);
         });
       },
 
@@ -219,56 +173,49 @@
             return;
           }
           if (!db) return reject(new Error('DB not initialized'));
-          const transaction = db.transaction([STORE_META], 'readwrite');
-          const store = transaction.objectStore(STORE_META);
-          const request = store.put({ key, value });
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+          const tx = db.transaction([STORE_META], 'readwrite');
+          const req = tx.objectStore(STORE_META).put({ key, value });
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
         });
       },
 
       clearAll() {
         return new Promise((resolve, reject) => {
           if (useLocalStorage) {
-            const keysToRemove = [];
+            const keys = [];
             for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              if (key.startsWith('workout_') || key.startsWith('meta_')) {
-                keysToRemove.push(key);
-              }
+              const k = localStorage.key(i);
+              if (k.startsWith('workout_') || k.startsWith('meta_')) keys.push(k);
             }
-            keysToRemove.forEach(k => localStorage.removeItem(k));
+            keys.forEach(k => localStorage.removeItem(k));
             resolve();
             return;
           }
           if (!db) return reject(new Error('DB not initialized'));
-          const transaction = db.transaction([STORE_WORKOUTS, STORE_META], 'readwrite');
-          transaction.objectStore(STORE_WORKOUTS).clear();
-          transaction.objectStore(STORE_META).clear();
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error);
+          const tx = db.transaction([STORE_WORKOUTS, STORE_META], 'readwrite');
+          tx.objectStore(STORE_WORKOUTS).clear();
+          tx.objectStore(STORE_META).clear();
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
         });
       },
-      
+
       exportAll() {
-        return Promise.all([this.getAllWorkouts(), this.getMeta('streak')]).then(([workouts, streak]) => {
-          return {
-            version: DB_VERSION,
-            exportDate: new Date().toISOString(),
-            workouts,
-            meta: { streak }
-          };
-        });
+        return Promise.all([this.getAllWorkouts(), this.getMeta('streak')]).then(([workouts, streak]) => ({
+          version: DB_VERSION,
+          exportDate: new Date().toISOString(),
+          workouts,
+          meta: { streak }
+        }));
       },
-      
+
       async importAll(data) {
         if (!data || !data.workouts || !Array.isArray(data.workouts)) {
-          throw new Error("Invalid export file format");
+          throw new Error('Invalid export file format');
         }
         await this.clearAll();
-        for (const w of data.workouts) {
-          await this.saveWorkout(w);
-        }
+        for (const w of data.workouts) await this.saveWorkout(w);
         if (data.meta && data.meta.streak) {
           await this.setMeta('streak', data.meta.streak);
         }
@@ -276,89 +223,75 @@
     };
   })();
 
-  // ==========================================
-  // 3. STATE MANAGEMENT
-  // ==========================================
-  const Store = {
-    state: {
-      currentView: 'view-today',
-      selectedDate: Dates.getEffectiveDate(),
-      todayData: null,
-      historyDate: Dates.getEffectiveDate(),
-      calendarMonth: Dates.getEffectiveDate(),
-      calendarData: {},
-      isEditing: false,
-      streak: { current: 0, longest: 0, lastDate: null },
-      chartRange: '7', // '7', '30', '90', 'all'
-      isDirty: false
-    },
-    listeners: [],
-    subscribe(fn) {
-      this.listeners.push(fn);
-      return () => {
-        this.listeners = this.listeners.filter(listener => listener !== fn);
-      };
-    },
-    setState(updates) {
-      this.state = { ...this.state, ...updates };
-      this.notify();
-    },
-    getState() {
-      return this.state;
-    },
-    notify() {
-      this.listeners.forEach(fn => fn(this.state));
-    }
-  };
-
+  // ============================================================
+  // 3. WORKOUT DATA HELPERS
+  // ============================================================
   function createEmptyWorkout(dateStr) {
     return {
       date: dateStr,
       morning: {
-        sets: [{ reps: 0, timestamp: null }, { reps: 0, timestamp: null }, { reps: 0, timestamp: null }],
+        sets: [
+          { reps: 0, timestamp: null },
+          { reps: 0, timestamp: null },
+          { reps: 0, timestamp: null }
+        ],
         completed: false
       },
       evening: {
-        sets: [{ reps: 0, timestamp: null }, { reps: 0, timestamp: null }, { reps: 0, timestamp: null }],
+        sets: [
+          { reps: 0, timestamp: null },
+          { reps: 0, timestamp: null },
+          { reps: 0, timestamp: null }
+        ],
         completed: false
       },
+      emom: [],
       notes: ''
     };
   }
 
-  // ==========================================
+  function workoutMorningTotal(w) {
+    return (w.morning?.sets || []).reduce((s, x) => s + (x.reps || 0), 0);
+  }
+  function workoutEveningTotal(w) {
+    return (w.evening?.sets || []).reduce((s, x) => s + (x.reps || 0), 0);
+  }
+  function workoutEmomTotal(w) {
+    return (w.emom || []).reduce((s, e) => s + (e.totalReps || 0), 0);
+  }
+  function workoutDayTotal(w) {
+    return workoutMorningTotal(w) + workoutEveningTotal(w) + workoutEmomTotal(w);
+  }
+  function workoutBestSet(w) {
+    let best = 0;
+    (w.morning?.sets || []).forEach(s => { if (s.reps > best) best = s.reps; });
+    (w.evening?.sets || []).forEach(s => { if (s.reps > best) best = s.reps; });
+    return best;
+  }
+
+  // ============================================================
   // 4. STREAK ENGINE
-  // ==========================================
+  // ============================================================
   const Streak = {
     async calculate(allWorkouts) {
       if (!allWorkouts || allWorkouts.length === 0) {
         return { current: 0, longest: 0, lastDate: null };
       }
-
-      // Filter and sort workouts that have BOTH morning and evening completed with >0 reps
       const validWorkouts = allWorkouts.filter(w => {
-        const morningHasReps = w.morning && w.morning.sets && w.morning.sets.some(s => s.reps > 0);
-        const eveningHasReps = w.evening && w.evening.sets && w.evening.sets.some(s => s.reps > 0);
-        return morningHasReps && eveningHasReps;
+        const mHasReps = w.morning?.sets?.some(s => s.reps > 0);
+        const eHasReps = w.evening?.sets?.some(s => s.reps > 0);
+        return mHasReps && eHasReps;
       }).sort((a, b) => a.date.localeCompare(b.date));
 
-      if (validWorkouts.length === 0) {
-        return { current: 0, longest: 0, lastDate: null };
-      }
+      if (validWorkouts.length === 0) return { current: 0, longest: 0, lastDate: null };
 
       let currentStreak = 1;
       let longestStreak = 1;
-      
       for (let i = 1; i < validWorkouts.length; i++) {
-        const prevDate = new Date(validWorkouts[i - 1].date);
-        const currDate = new Date(validWorkouts[i].date);
-        const diff = Dates.daysBetween(currDate, prevDate);
-
+        const diff = Dates.daysBetween(new Date(validWorkouts[i].date), new Date(validWorkouts[i - 1].date));
         if (diff === 1) {
           currentStreak++;
-          if (currentStreak > longestStreak) {
-            longestStreak = currentStreak;
-          }
+          if (currentStreak > longestStreak) longestStreak = currentStreak;
         } else if (diff > 1) {
           currentStreak = 1;
         }
@@ -367,1086 +300,1062 @@
       const lastValidDate = validWorkouts[validWorkouts.length - 1].date;
       const today = Dates.formatDate(Dates.getEffectiveDate());
       const yesterday = Dates.formatDate(Dates.addDays(Dates.getEffectiveDate(), -1));
+      if (lastValidDate !== today && lastValidDate !== yesterday) currentStreak = 0;
 
-      // If the last valid date is not today and not yesterday, current streak is broken
-      if (lastValidDate !== today && lastValidDate !== yesterday) {
-        currentStreak = 0;
-      }
-
-      return {
-        current: currentStreak,
-        longest: longestStreak,
-        lastDate: lastValidDate
-      };
+      return { current: currentStreak, longest: longestStreak, lastDate: lastValidDate };
     },
 
     async update() {
       const allWorkouts = await DB.getAllWorkouts();
       const newStreak = await this.calculate(allWorkouts);
-      
-      // Get existing meta to preserve longest streak if historical edits dropped current longest
-      const oldStreakMeta = await DB.getMeta('streak') || { longest: 0 };
-      if (newStreak.longest < oldStreakMeta.longest) {
-         newStreak.longest = oldStreakMeta.longest; // Only keep highest ever recorded
-      }
-      
+      const oldMeta = await DB.getMeta('streak') || { longest: 0 };
+      if (newStreak.longest < oldMeta.longest) newStreak.longest = oldMeta.longest;
       await DB.setMeta('streak', newStreak);
-      Store.setState({ streak: newStreak });
+      AppState.streak = newStreak;
+      updateStreakUI();
     }
   };
 
-  // ==========================================
+  // ============================================================
   // 5. TOAST NOTIFICATIONS
-  // ==========================================
+  // ============================================================
   const Toast = {
     show(message, type = 'info', duration = 3000) {
       const container = document.getElementById('toast-container');
       if (!container) return;
-      
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
       toast.textContent = message;
-      
       container.appendChild(toast);
-      
-      // Animate in
-      requestAnimationFrame(() => {
-        toast.classList.add('active');
-      });
-
+      requestAnimationFrame(() => toast.classList.add('active'));
       setTimeout(() => {
         toast.classList.remove('active');
-        setTimeout(() => toast.remove(), 300); // Wait for transition
+        setTimeout(() => toast.remove(), 300);
       }, duration);
     }
   };
 
-  // ==========================================
-  // 6. EMOM TRACKER
-  // ==========================================
-
-  /**
-   * Self-contained EMOM (Every Minute On the Minute) training module.
-   * Manages timer state, wake lock, UI updates and DB persistence.
-   */
-  const EmomTracker = {
-    // --- Config ---
-    targetReps: 10,
-
-    // --- Runtime state ---
-    currentRound: 1,
-    completedRounds: 0,
-    secondsLeft: 60,
-    roundCompleted: false, // true once "Runde geschafft" clicked in current minute
-    intervalId: null,
-    wakeLock: null,
-
-    // SVG ring constants (r = 52)
-    CIRCUMFERENCE: 2 * Math.PI * 52, // ≈ 326.73
-
-    // --- Wake Lock helpers ---
-    async _acquireWakeLock() {
-      if ('wakeLock' in navigator) {
-        try {
-          this.wakeLock = await navigator.wakeLock.request('screen');
-          this.wakeLock.addEventListener('release', () => {
-            this.wakeLock = null;
-          });
-        } catch (err) {
-          console.warn('Wake Lock nicht verfügbar:', err.message);
-        }
-      }
-    },
-
-    async _releaseWakeLock() {
-      if (this.wakeLock) {
-        try { await this.wakeLock.release(); } catch (_) {}
-        this.wakeLock = null;
-      }
-    },
-
-    // --- Start ---
-    async start(targetReps) {
-      this.targetReps = targetReps;
-      this.currentRound = 1;
-      this.completedRounds = 0;
-      this.secondsLeft = 60;
-      this.roundCompleted = false;
-
-      await this._acquireWakeLock();
-
-      // Show active panel
-      document.getElementById('emom-setup').classList.add('hidden');
-      document.getElementById('emom-active').classList.remove('hidden');
-
-      // Reset "Runde geschafft" button state
-      const doneBtn = document.getElementById('btn-emom-done');
-      if (doneBtn) { doneBtn.disabled = false; doneBtn.classList.remove('emom-round-done'); }
-
-      this._updateUI();
-
-      this.intervalId = setInterval(() => this._tick(), 1000);
-    },
-
-    // --- Tick (1 s) ---
-    _tick() {
-      this.secondsLeft--;
-
-      if (this.secondsLeft <= 0) {
-        // Current round over — advance to next regardless of whether it was "geschafft"
-        this.currentRound++;
-        this.secondsLeft = 60;
-        this.roundCompleted = false;
-
-        // Re-enable "Runde geschafft" button for new round
-        const doneBtn = document.getElementById('btn-emom-done');
-        if (doneBtn) { doneBtn.disabled = false; doneBtn.classList.remove('emom-round-done'); }
-      }
-
-      this._updateUI();
-    },
-
-    // --- "Runde geschafft" clicked ---
-    completeRound() {
-      if (this.roundCompleted) return; // already credited this minute
-      this.roundCompleted = true;
-      this.completedRounds++;
-
-      // Disable button for the rest of this minute (pause time)
-      const doneBtn = document.getElementById('btn-emom-done');
-      if (doneBtn) { doneBtn.disabled = true; doneBtn.classList.add('emom-round-done'); }
-
-      this._updateUI();
-      Toast.show(`Runde ${this.completedRounds} ✅  +${this.targetReps} Reps`, 'success', 1800);
-    },
-
-    // --- Stop & save ---
-    async abort() {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-      await this._releaseWakeLock();
-
-      if (this.completedRounds > 0) {
-        await this._save();
-      } else {
-        Toast.show('EMOM beendet — keine Runden gezählt.', 'info');
-      }
-
-      // Back to setup
-      document.getElementById('emom-active').classList.add('hidden');
-      document.getElementById('emom-setup').classList.remove('hidden');
-    },
-
-    async _save() {
-      const totalReps = this.completedRounds * this.targetReps;
-      const session = {
-        targetRepsPerMinute: this.targetReps,
-        completedRounds: this.completedRounds,
-        totalReps,
-        failedRoundReps: 0,
-        timestamp: new Date().toISOString()
-      };
-
-      const todayStr = Dates.formatDate(Dates.getEffectiveDate());
-      const wData = (await DB.getWorkout(todayStr)) || createEmptyWorkout(todayStr);
-      if (!Array.isArray(wData.emom)) wData.emom = [];
-      wData.emom.push(session);
-
-      await DB.saveWorkout(wData);
-      Store.setState({ todayData: wData });
-      await Streak.update();
-
-      Toast.show(
-        `EMOM gespeichert 💪  ${this.completedRounds} Runden · ${totalReps} Reps`,
-        'success', 4000
-      );
-    },
-
-    // --- UI update ---
-    _updateUI() {
-      // Ring progress: full at 60 s, empty at 0 s
-      const dashoffset = this.CIRCUMFERENCE * (1 - this.secondsLeft / 60);
-      const ring = document.getElementById('emom-ring-fill');
-      if (ring) {
-        ring.style.strokeDashoffset = dashoffset;
-        // Colour warning cues
-        if (this.secondsLeft <= 10) {
-          ring.style.stroke = '#ff453a';       // danger
-        } else if (this.secondsLeft <= 20) {
-          ring.style.stroke = '#ff9f0a';       // warning
-        } else if (this.roundCompleted) {
-          ring.style.stroke = '#34c759';       // success (pause arc)
-        } else {
-          ring.style.stroke = '#4a9eff';       // primary
-        }
-      }
-
-      const secEl = document.getElementById('emom-seconds');
-      if (secEl) secEl.textContent = this.secondsLeft;
-
-      // Pulse animation on last 10 s
-      if (secEl) {
-        if (this.secondsLeft <= 10 && !this.roundCompleted) {
-          secEl.classList.add('emom-pulse');
-        } else {
-          secEl.classList.remove('emom-pulse');
-        }
-      }
-
-      const roundEl = document.getElementById('emom-round-num');
-      if (roundEl) roundEl.textContent = this.currentRound;
-
-      const compRoundsEl = document.getElementById('emom-completed-rounds');
-      if (compRoundsEl) compRoundsEl.textContent = this.completedRounds;
-
-      const compRepsEl = document.getElementById('emom-completed-reps');
-      if (compRepsEl) compRepsEl.textContent = this.completedRounds * this.targetReps;
-
-      const targetEl = document.getElementById('emom-target-display');
-      if (targetEl) targetEl.textContent = this.targetReps;
-    }
+  // ============================================================
+  // 6. APP STATE
+  // ============================================================
+  const AppState = {
+    todayData: null,
+    todayStr: '',
+    streak: { current: 0, longest: 0, lastDate: null },
+    currentTab: 'emom',
+    currentChartRange: '7',
+    selectedDayDate: '',   // YYYY-MM-DD string
+    isDayEditMode: false,
+    isDirty: false,
+    // Heatmap data cache: array of 84 day objects {date, label, mmdd, morningTotal, eveningTotal, emomTotal, total, dayObj}
+    heatmapDays: [],
+    editDayMorning: 0,
+    editDayEvening: 0,
+    editDayEmom: 0
   };
 
-  // Re-acquire wake lock when page becomes visible again (iOS drops it on hide)
-  document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible' && EmomTracker.intervalId && !EmomTracker.wakeLock) {
-      await EmomTracker._acquireWakeLock();
+  // ============================================================
+  // 7. STATUS BAR CLOCK
+  // ============================================================
+  function updateStatusBarClock() {
+    const el = document.getElementById('status-bar-time');
+    if (!el) return;
+    const now = new Date();
+    el.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  // ============================================================
+  // 8. TAB NAVIGATION
+  // ============================================================
+  const appTopBar = document.getElementById('app-top-bar');
+  const tabs = {
+    today: document.getElementById('tab-today'),
+    emom:  document.getElementById('tab-emom'),
+    stats: document.getElementById('tab-stats')
+  };
+  const navBtns = {
+    today: document.getElementById('nav-today'),
+    emom:  document.getElementById('nav-emom'),
+    stats: document.getElementById('nav-stats')
+  };
+
+  function switchTab(target) {
+    AppState.currentTab = target;
+    if (target === 'emom') {
+      appTopBar.classList.add('hidden');
+      appTopBar.classList.remove('flex');
+    } else {
+      appTopBar.classList.remove('hidden');
+      appTopBar.classList.add('flex');
     }
-  });
-
-  // ==========================================
-  // 7. UI RENDERERS & CONTROLLERS
-  // ==========================================
-  
-  function updateDOM() {
-    const state = Store.getState();
-    
-    // Update Streak displays
-    const streakDisplay = document.getElementById('header-streak');
-    if (streakDisplay) {
-        streakDisplay.textContent = `🔥 ${state.streak.current}`;
-    }
-
-    // Toggle views based on currentView
-    ['view-today', 'view-history', 'view-stats', 'view-emom'].forEach(v => {
-      const viewEl = document.getElementById(v);
-      if (viewEl) {
-        if (state.currentView === v) {
-            viewEl.classList.add('active');
-        } else {
-            viewEl.classList.remove('active');
-        }
-      }
-    });
-
-    // Update active tab button
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      if (btn.getAttribute('data-target') === state.currentView) {
-          btn.classList.add('active');
+    Object.keys(tabs).forEach(key => {
+      if (key === target) {
+        tabs[key].classList.remove('hidden');
+        tabs[key].classList.add('flex');
+        navBtns[key].className = 'flex flex-col items-center gap-1 text-laser-orange tap-btn';
       } else {
-          btn.classList.remove('active');
+        tabs[key].classList.add('hidden');
+        tabs[key].classList.remove('flex');
+        navBtns[key].className = 'flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 tap-btn';
       }
     });
-
-    if (state.currentView === 'view-today') {
-      renderTodayView();
-    } else if (state.currentView === 'view-history') {
-      renderHistoryView();
-    } else if (state.currentView === 'view-stats') {
-      renderStatsView();
-    }
-    // view-emom is self-managed by EmomTracker (no re-render on state change needed)
-  }
-
-  // --- Today View ---
-
-  /**
-   * Renders a single set-row for the Today view.
-   * @param {string} sessionName - 'morning' | 'evening'
-   * @param {number} setIndex    - 0-based index within the session's sets array
-   * @param {number} reps        - current rep count for this set
-   * @param {boolean} isDeletable - show ✕ button when true (set index >= 3)
-   */
-  function createSetRowElement(sessionName, setIndex, reps, isDeletable) {
-    const setNum = setIndex + 1; // 1-based display number
-    const row = document.createElement('div');
-    row.className = 'set-row';
-    row.dataset.setIndex = setIndex;
-
-    const label = document.createElement('label');
-    label.className = 'set-label';
-    label.textContent = `Set ${setNum}`;
-    row.appendChild(label);
-
-    const controls = document.createElement('div');
-    controls.className = 'stepper-controls';
-
-    const makeStepperBtn = (val, ariaLabel) => {
-      const btn = document.createElement('button');
-      btn.className = 'btn-stepper';
-      btn.dataset.session = sessionName;
-      btn.dataset.setIndex = setIndex;
-      btn.dataset.val = val;
-      btn.setAttribute('aria-label', ariaLabel);
-      btn.textContent = val > 0 ? `+${val}` : `${val}`;
-      return btn;
-    };
-
-    controls.appendChild(makeStepperBtn(-5, 'Decrease by 5'));
-    controls.appendChild(makeStepperBtn(-1, 'Decrease by 1'));
-
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.id = `input-${sessionName}-${setIndex}`;
-    input.className = 'rep-input';
-    input.inputMode = 'numeric';
-    input.pattern = '[0-9]*';
-    input.value = reps > 0 ? reps : '';
-    input.setAttribute('aria-label', `${sessionName} Set ${setNum} Reps`);
-    controls.appendChild(input);
-
-    controls.appendChild(makeStepperBtn(1, 'Increase by 1'));
-    controls.appendChild(makeStepperBtn(5, 'Increase by 5'));
-
-    // Delete button — only for sets beyond the initial 3 (index >= 3)
-    if (isDeletable) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn-delete-set';
-      delBtn.dataset.session = sessionName;
-      delBtn.dataset.setIndex = setIndex;
-      delBtn.setAttribute('aria-label', `Remove Set ${setNum}`);
-      delBtn.textContent = '✕';
-      controls.appendChild(delBtn);
-    }
-
-    row.appendChild(controls);
-    return row;
-  }
-
-  /**
-   * Re-renders all set-rows for one session inside its container.
-   * Preserves focus by tracking the currently-focused input's setIndex.
-   */
-  function renderSessionSets(sessionName, sets) {
-    const container = document.getElementById(`sets-${sessionName}`);
-    if (!container) return;
-
-    // Remember which set-index had focus (if any), so we can restore it
-    const focused = document.activeElement;
-    let focusedIndex = -1;
-    if (focused && focused.tagName === 'INPUT' && focused.id.startsWith(`input-${sessionName}-`)) {
-      focusedIndex = parseInt(focused.id.replace(`input-${sessionName}-`, ''), 10);
-    }
-
-    // Remove existing set-rows (keep "add set" button if already present)
-    container.querySelectorAll('.set-row').forEach(el => el.remove());
-    const existingAddBtn = container.querySelector('.btn-add-set');
-
-    // Insert set-rows before the add-button (or at end)
-    sets.forEach((set, idx) => {
-      const row = createSetRowElement(sessionName, idx, set.reps, idx >= 3);
-      container.insertBefore(row, existingAddBtn || null);
-    });
-
-    // Ensure "+" button exists
-    if (!existingAddBtn) {
-      const addBtn = document.createElement('button');
-      addBtn.className = 'btn-add-set';
-      addBtn.dataset.session = sessionName;
-      addBtn.setAttribute('aria-label', `Add set to ${sessionName} session`);
-      addBtn.textContent = '+ Satz hinzufügen';
-      container.appendChild(addBtn);
-    }
-
-    // Restore focus
-    if (focusedIndex >= 0) {
-      const newInput = document.getElementById(`input-${sessionName}-${focusedIndex}`);
-      if (newInput) newInput.focus();
+    if (target === 'stats') {
+      renderStatsAndHeatmap();
     }
   }
 
-  function renderTodayView() {
-    const state = Store.getState();
-    const data = state.todayData;
+  navBtns.today.addEventListener('click', () => switchTab('today'));
+  navBtns.emom.addEventListener('click', () => switchTab('emom'));
+  navBtns.stats.addEventListener('click', () => switchTab('stats'));
+
+  // ============================================================
+  // 9. TODAY TAB — RENDER & AUTO-SAVE
+  // ============================================================
+  let autoSaveTimer = null;
+
+  function scheduleAutoSave() {
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => saveTodayData(), 300);
+  }
+
+  function renderTodaySessions() {
+    const data = AppState.todayData;
     if (!data) return;
 
-    const dateDisplay = document.getElementById('header-date');
-    if (dateDisplay) {
-      dateDisplay.textContent = Dates.formatDisplayDate(Dates.getEffectiveDate());
-    }
+    // Update header date
+    const h1 = appTopBar.querySelector('h1');
+    if (h1) h1.textContent = Dates.formatDisplayDate(Dates.getEffectiveDate());
 
-    ['morning', 'evening'].forEach(sessionName => {
-      const sessionData = data[sessionName];
-      const sets = sessionData.sets || [];
+    ['morning', 'evening'].forEach(session => {
+      const sets = data[session].sets || [];
+      const container = document.getElementById(`${session}-sets-list`);
+      if (!container) return;
 
-      // Re-render set-rows for this session
-      renderSessionSets(sessionName, sets);
+      // Remember focused input
+      const focused = document.activeElement;
+      let focusedIdx = -1;
+      if (focused && focused.tagName === 'INPUT' && focused.id.startsWith(`input-${session}-`)) {
+        focusedIdx = parseInt(focused.id.replace(`input-${session}-`, ''), 10);
+      }
 
-      // Compute totals
-      const sessionTotal = sets.reduce((sum, s) => sum + (s.reps || 0), 0);
+      container.innerHTML = sets.map((set, idx) => {
+        const reps = set.reps || 0;
+        const showDelete = idx >= 3;
+        return `
+          <div class="flex items-center justify-between bg-app-input px-3 py-2.5 rounded-[16px] border border-white/[0.06]">
+            <span class="text-xs font-semibold text-slate-300">Set ${idx + 1}</span>
+            <div class="flex items-center gap-2">
+              <button data-session="${session}" data-idx="${idx}" data-delta="-5" class="set-stepper w-7 h-7 rounded-lg bg-white/[0.06] text-[11px] font-bold text-slate-300 tap-btn">-5</button>
+              <button data-session="${session}" data-idx="${idx}" data-delta="-1" class="set-stepper w-7 h-7 rounded-lg bg-white/[0.06] text-[11px] font-bold text-slate-300 tap-btn">-1</button>
+              <input type="number" id="input-${session}-${idx}" class="w-12 h-7 text-center bg-transparent text-sm font-extrabold text-white tabular-nums border-0 outline-none" inputmode="numeric" pattern="[0-9]*" value="${reps > 0 ? reps : ''}" min="0" max="999" placeholder="0">
+              <button data-session="${session}" data-idx="${idx}" data-delta="1" class="set-stepper w-7 h-7 rounded-lg bg-white/[0.06] text-[11px] font-bold text-slate-300 tap-btn">+1</button>
+              <button data-session="${session}" data-idx="${idx}" data-delta="5" class="set-stepper w-7 h-7 rounded-lg bg-white/[0.06] text-[11px] font-bold text-slate-300 tap-btn">+5</button>
+              ${showDelete ? `<button data-session="${session}" data-idx="${idx}" class="set-delete w-6 h-6 rounded-md bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 font-bold tap-btn">✕</button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Restore focus
+      if (focusedIdx >= 0) {
+        const inp = document.getElementById(`input-${session}-${focusedIdx}`);
+        if (inp) inp.focus();
+      }
+
+      // Totals & badges
+      const total = sets.reduce((s, x) => s + (x.reps || 0), 0);
       const hasReps = sets.some(s => s.reps > 0);
 
-      const totalEl = document.getElementById(`total-${sessionName}`);
-      if (totalEl) totalEl.textContent = sessionTotal;
+      const totalEl = document.getElementById(`${session}-total-val`);
+      if (totalEl) totalEl.textContent = total;
 
-      const badge = document.getElementById(`status-${sessionName}`);
+      const badge = document.getElementById(`${session}-status-badge`);
       if (badge) {
         if (hasReps) {
           badge.textContent = 'Complete';
-          badge.classList.remove('incomplete');
-          badge.classList.add('complete');
+          badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-emerald-500/15 border border-emerald-500/40 text-emerald-400';
         } else {
           badge.textContent = 'Incomplete';
-          badge.classList.remove('complete');
-          badge.classList.add('incomplete');
+          badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/5 border border-white/10 text-slate-400';
         }
       }
     });
-
-    const morningTotal = (data.morning.sets || []).reduce((s, x) => s + (x.reps || 0), 0);
-    const eveningTotal = (data.evening.sets || []).reduce((s, x) => s + (x.reps || 0), 0);
-    const emomTotal    = (data.emom || []).reduce((s, e) => s + (e.totalReps || 0), 0);
-    const totalDisplay = document.getElementById('total-daily');
-    if (totalDisplay) totalDisplay.textContent = morningTotal + eveningTotal + emomTotal;
   }
 
-  function handleSetInputChange(e) {
-    if (!e.target.classList.contains('rep-input')) return;
-    
-    const input = e.target;
-    let val = parseInt(input.value, 10);
-    if (isNaN(val) || val < 0) val = 0;
-    if (val > 999) val = 999;
-    
-    // We don't overwrite the value while typing to allow empty string temporarily
-    
-    updateTodayDataFromUI();
-  }
-
-  function handleStepperClick(e) {
-    const btn = e.target.closest('.btn-stepper');
-    if (!btn) return;
-
-    const delta = parseInt(btn.getAttribute('data-val'), 10);
-    const session = btn.getAttribute('data-session');
-    // Support both legacy data-set (1-based) and new data-set-index (0-based)
-    const setIndexAttr = btn.getAttribute('data-set-index');
-    const setAttr = btn.getAttribute('data-set');
-    const setIndex = setIndexAttr !== null ? parseInt(setIndexAttr, 10) : parseInt(setAttr, 10) - 1;
-    
-    const inputId = `input-${session}-${setIndex}`;
-    const input = document.getElementById(inputId);
-    if (!input) return;
-
-    let val = parseInt(input.value, 10) || 0;
-    val += delta;
-    if (val < 0) val = 0;
-    if (val > 999) val = 999;
-    
-    input.value = val > 0 ? val : '';
-    updateTodayDataFromUI();
-  }
-
-  /** Handles the "✕" delete-set button on additional sets (index >= 3). */
-  function handleDeleteSetClick(e) {
-    const btn = e.target.closest('.btn-delete-set');
-    if (!btn) return;
-
-    const session = btn.getAttribute('data-session');
-    const setIndex = parseInt(btn.getAttribute('data-set-index'), 10);
-
-    const state = Store.getState();
-    if (!state.todayData) return;
-
-    const data = JSON.parse(JSON.stringify(state.todayData));
-    if (data[session].sets.length <= 1) return; // keep at least 1 set
-
-    data[session].sets.splice(setIndex, 1);
-    data[session].completed = data[session].sets.some(s => s.reps > 0);
-
-    Store.setState({ todayData: data, isDirty: true });
-    renderTodayView();
-  }
-
-  /** Handles the "+ Satz hinzufügen" button. */
-  function handleAddSetClick(e) {
-    const btn = e.target.closest('.btn-add-set');
-    if (!btn) return;
-
-    const session = btn.getAttribute('data-session');
-    const state = Store.getState();
-    if (!state.todayData) return;
-
-    const data = JSON.parse(JSON.stringify(state.todayData));
-    data[session].sets.push({ reps: 0, timestamp: null });
-
-    Store.setState({ todayData: data, isDirty: true });
-    renderTodayView();
-
-    // Auto-focus the new input
-    const newIndex = data[session].sets.length - 1;
-    const newInput = document.getElementById(`input-${session}-${newIndex}`);
-    if (newInput) newInput.focus();
-  }
-
-  function updateTodayDataFromUI() {
-    const state = Store.getState();
-    if (!state.todayData) return;
-    
-    const data = JSON.parse(JSON.stringify(state.todayData)); // clone
-
-    const getSessionData = (sessionName) => {
-      const currentSets = data[sessionName].sets;
-      const sets = [];
-      let hasReps = false;
-      // Iterate over all currently rendered inputs using data-set-index
-      currentSets.forEach((existingSet, idx) => {
-          const input = document.getElementById(`input-${sessionName}-${idx}`);
-          let reps = input ? (parseInt(input.value, 10) || 0) : existingSet.reps;
-          if (reps < 0) reps = 0;
-          if (reps > 999) reps = 999;
-          if (reps > 0) hasReps = true;
-          sets.push({
-              reps,
-              timestamp: existingSet.timestamp || (reps > 0 ? new Date().toISOString() : null)
-          });
-      });
-      data[sessionName].sets = sets;
-      data[sessionName].completed = hasReps;
-    };
-
-    getSessionData('morning');
-    getSessionData('evening');
-
-    Store.setState({ todayData: data, isDirty: true });
-    // Update totals only — do not full-re-render (avoids focus disruption while typing)
-    const updateTotals = (sessionName) => {
-      const sets = data[sessionName].sets;
+  function updateTodayTotalsOnly() {
+    ['morning', 'evening'].forEach(session => {
+      const sets = (AppState.todayData?.[session]?.sets || []);
       const total = sets.reduce((s, x) => s + (x.reps || 0), 0);
       const hasReps = sets.some(s => s.reps > 0);
-      const totalEl = document.getElementById(`total-${sessionName}`);
+      const totalEl = document.getElementById(`${session}-total-val`);
       if (totalEl) totalEl.textContent = total;
-      const badge = document.getElementById(`status-${sessionName}`);
+      const badge = document.getElementById(`${session}-status-badge`);
       if (badge) {
-        badge.textContent = hasReps ? 'Complete' : 'Incomplete';
-        badge.className = `status-badge ${hasReps ? 'complete' : 'incomplete'}`;
+        if (hasReps) {
+          badge.textContent = 'Complete';
+          badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-emerald-500/15 border border-emerald-500/40 text-emerald-400';
+        } else {
+          badge.textContent = 'Incomplete';
+          badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/5 border border-white/10 text-slate-400';
+        }
       }
-      return total;
-    };
-    const mTotal = updateTotals('morning');
-    const eTotal = updateTotals('evening');
-    const dailyEl = document.getElementById('total-daily');
-    if (dailyEl) dailyEl.textContent = mTotal + eTotal;
+    });
+  }
+
+  function readTodayFromInputs() {
+    const data = AppState.todayData;
+    if (!data) return;
+    ['morning', 'evening'].forEach(session => {
+      const sets = data[session].sets;
+      sets.forEach((set, idx) => {
+        const inp = document.getElementById(`input-${session}-${idx}`);
+        if (inp) {
+          let val = parseInt(inp.value, 10);
+          if (isNaN(val) || val < 0) val = 0;
+          if (val > 999) val = 999;
+          set.reps = val;
+          set.timestamp = val > 0 ? (set.timestamp || new Date().toISOString()) : null;
+        }
+      });
+      data[session].completed = sets.some(s => s.reps > 0);
+    });
+    AppState.isDirty = true;
   }
 
   async function saveTodayData() {
-    const state = Store.getState();
-    if (!state.isDirty) return;
-
-    await DB.saveWorkout(state.todayData);
+    readTodayFromInputs();
+    if (!AppState.todayData) return;
+    await DB.saveWorkout(AppState.todayData);
     await Streak.update();
-    Store.setState({ isDirty: false });
-    Toast.show('Workout saved!', 'success');
+    AppState.isDirty = false;
   }
 
-  // --- History View ---
-  async function loadMonthData(year, month) {
-    const startStr = Dates.formatDate(new Date(year, month, 1));
-    const endStr = Dates.formatDate(new Date(year, month + 1, 0));
-    
-    const workouts = await DB.getWorkoutsInRange(startStr, endStr);
-    const calendarData = {};
-    workouts.forEach(w => {
-      calendarData[w.date] = w;
-    });
-    
-    Store.setState({ calendarData });
-    renderHistoryView();
-  }
-
-  function renderHistoryView() {
-    const state = Store.getState();
-    const year = state.calendarMonth.getFullYear();
-    const month = state.calendarMonth.getMonth();
-    
-    const label = document.getElementById('current-month-display');
-    if (label) label.textContent = Dates.formatMonthYear(state.calendarMonth);
-
-    const grid = document.getElementById('calendar-grid');
-    if (!grid) return;
-
-    grid.innerHTML = '';
-    
-    const daysInMonth = Dates.getDaysInMonth(year, month);
-    const firstDay = Dates.getFirstDayOfMonth(year, month);
-    const todayStr = Dates.formatDate(Dates.getEffectiveDate());
-
-    // Padding days
-    for (let i = 0; i < firstDay; i++) {
-      const div = document.createElement('div');
-      div.className = 'calendar-day empty';
-      grid.appendChild(div);
+  // Today tab event delegation
+  document.getElementById('tab-today').addEventListener('click', (e) => {
+    const stepper = e.target.closest('.set-stepper');
+    if (stepper) {
+      const session = stepper.dataset.session;
+      const idx = parseInt(stepper.dataset.idx, 10);
+      const delta = parseInt(stepper.dataset.delta, 10);
+      const data = AppState.todayData;
+      if (!data) return;
+      const set = data[session].sets[idx];
+      if (!set) return;
+      const inp = document.getElementById(`input-${session}-${idx}`);
+      const cur = inp ? (parseInt(inp.value, 10) || 0) : (set.reps || 0);
+      const newVal = Math.max(0, Math.min(999, cur + delta));
+      set.reps = newVal;
+      set.timestamp = newVal > 0 ? (set.timestamp || new Date().toISOString()) : null;
+      data[session].completed = data[session].sets.some(s => s.reps > 0);
+      if (inp) inp.value = newVal > 0 ? newVal : '';
+      updateTodayTotalsOnly();
+      updateBadgeOnly(session);
+      AppState.isDirty = true;
+      scheduleAutoSave();
+      return;
     }
 
-    // Actual days
-    for (let i = 1; i <= daysInMonth; i++) {
-      const d = new Date(year, month, i);
-      const dateStr = Dates.formatDate(d);
-      
-      const div = document.createElement('div');
-      div.className = 'calendar-day';
-      div.textContent = i;
-      
-      if (dateStr === todayStr) {
-        div.classList.add('today');
-      }
-
-      if (dateStr === Dates.formatDate(state.historyDate)) {
-        div.classList.add('selected');
-      }
-
-      const wData = state.calendarData[dateStr];
-      if (wData) {
-        const morningHasReps = wData.morning?.sets?.some(s => s.reps > 0);
-        const eveningHasReps = wData.evening?.sets?.some(s => s.reps > 0);
-        
-        if (morningHasReps && eveningHasReps) {
-          div.classList.add('complete');
-        } else if (morningHasReps || eveningHasReps) {
-          div.classList.add('partial');
-        }
-      }
-
-      div.onclick = () => {
-        Store.setState({ historyDate: d, isEditing: false });
-        renderHistoryDetail();
-      };
-      
-      grid.appendChild(div);
+    const delBtn = e.target.closest('.set-delete');
+    if (delBtn) {
+      const session = delBtn.dataset.session;
+      const idx = parseInt(delBtn.dataset.idx, 10);
+      const data = AppState.todayData;
+      if (!data || data[session].sets.length <= 1) return;
+      data[session].sets.splice(idx, 1);
+      data[session].completed = data[session].sets.some(s => s.reps > 0);
+      AppState.isDirty = true;
+      renderTodaySessions();
+      scheduleAutoSave();
+      return;
     }
-    
-    renderHistoryDetail();
+  });
+
+  document.getElementById('tab-today').addEventListener('input', (e) => {
+    if (e.target.tagName === 'INPUT' && e.target.id.startsWith('input-')) {
+      const [, session, idxStr] = e.target.id.split('-');
+      const idx = parseInt(idxStr, 10);
+      let val = parseInt(e.target.value, 10);
+      if (isNaN(val) || val < 0) val = 0;
+      if (val > 999) { val = 999; e.target.value = 999; }
+      const data = AppState.todayData;
+      if (data && data[session] && data[session].sets[idx] !== undefined) {
+        data[session].sets[idx].reps = val;
+        data[session].sets[idx].timestamp = val > 0 ? (data[session].sets[idx].timestamp || new Date().toISOString()) : null;
+        data[session].completed = data[session].sets.some(s => s.reps > 0);
+      }
+      updateTodayTotalsOnly();
+      updateBadgeOnly(session);
+      AppState.isDirty = true;
+      scheduleAutoSave();
+    }
+  });
+
+  function updateBadgeOnly(session) {
+    const data = AppState.todayData;
+    if (!data) return;
+    const hasReps = data[session].sets.some(s => s.reps > 0);
+    const badge = document.getElementById(`${session}-status-badge`);
+    if (badge) {
+      if (hasReps) {
+        badge.textContent = 'Complete';
+        badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-emerald-500/15 border border-emerald-500/40 text-emerald-400';
+      } else {
+        badge.textContent = 'Incomplete';
+        badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/5 border border-white/10 text-slate-400';
+      }
+    }
   }
 
-  function renderHistoryDetail() {
-    const state = Store.getState();
-    const dateStr = Dates.formatDate(state.historyDate);
-    const data = state.calendarData[dateStr];
+  document.getElementById('btn-add-morning-set').addEventListener('click', () => {
+    const data = AppState.todayData;
+    if (!data) return;
+    data.morning.sets.push({ reps: 0, timestamp: null });
+    renderTodaySessions();
+    const newIdx = data.morning.sets.length - 1;
+    const inp = document.getElementById(`input-morning-${newIdx}`);
+    if (inp) inp.focus();
+    AppState.isDirty = true;
+    scheduleAutoSave();
+  });
 
-    const titleEl = document.getElementById('selected-day-title');
-    if (titleEl) titleEl.textContent = Dates.formatDisplayDate(state.historyDate);
+  document.getElementById('btn-add-evening-set').addEventListener('click', () => {
+    const data = AppState.todayData;
+    if (!data) return;
+    data.evening.sets.push({ reps: 0, timestamp: null });
+    renderTodaySessions();
+    const newIdx = data.evening.sets.length - 1;
+    const inp = document.getElementById(`input-evening-${newIdx}`);
+    if (inp) inp.focus();
+    AppState.isDirty = true;
+    scheduleAutoSave();
+  });
 
-    const detailsContainer = document.getElementById('selected-day-details');
-    const editContainer = document.getElementById('retro-edit-container');
-    const editBtn = document.getElementById('btn-edit-day');
+  // ============================================================
+  // 10. STREAK UI UPDATE
+  // ============================================================
+  function updateStreakUI() {
+    const count = AppState.streak.current;
+    const el = document.getElementById('header-streak-count');
+    if (el) el.textContent = count;
+  }
 
-    if (state.isEditing) {
-        detailsContainer.classList.add('hidden');
-        editContainer.classList.remove('hidden');
-        editBtn.style.display = 'none';
+  // ============================================================
+  // 11. EMOM — MORPH SVG ENGINE + WORKOUT LOGIC
+  // ============================================================
+  const TOTAL_RING_LEN = 2 * Math.PI * 176; // 1105.84
+  const ICON_ARC_LEN   = (240 / 360) * TOTAL_RING_LEN; // 737.23
+  const PLANK_TOTAL_LEN = 359.68;
 
-        // Render dynamic edit rows for morning and evening
-        const renderRetroSession = (sessionName, containerId) => {
-          const wrapper = document.getElementById(containerId);
-          if (!wrapper) return;
-          wrapper.innerHTML = `<h4>${sessionName.charAt(0).toUpperCase() + sessionName.slice(1)}</h4>`;
+  const emomRing          = document.getElementById('emom-ring');
+  const plankPath         = document.getElementById('plank-path');
+  const headNode          = document.getElementById('head-node');
+  const floorLine         = document.getElementById('floor-line');
+  const centerSecsGroup   = document.getElementById('center-seconds-group');
+  const centerSecsText    = document.getElementById('center-seconds-text');
+  const gradStop1         = document.getElementById('grad-stop-1');
+  const gradStop2         = document.getElementById('grad-stop-2');
+  const gradStop3         = document.getElementById('grad-stop-3');
+  const ambientGlow       = document.getElementById('ambient-glow');
+  const setupControls     = document.getElementById('setup-controls');
+  const workoutControls   = document.getElementById('workout-controls');
+  const repsDisplay       = document.getElementById('reps-display');
+  const minsDisplay       = document.getElementById('mins-display');
+  const btnEndless        = document.getElementById('btn-endless');
+  const restDisplay       = document.getElementById('rest-display');
+  const liveRoundText     = document.getElementById('live-round-text');
+  const livePhaseLabel    = document.getElementById('live-phase-label');
+  const liveTargetText    = document.getElementById('live-target-text');
+  const btnSetDone        = document.getElementById('btn-set-done');
+  const setDoneText       = document.getElementById('set-done-text');
 
-          const sets = data?.[sessionName]?.sets || [
-            { reps: 0 }, { reps: 0 }, { reps: 0 }
-          ];
-          sets.forEach((set, idx) => {
-            const row = document.createElement('div');
-            row.className = 'set-row';
-            const label = document.createElement('label');
-            label.textContent = `S${idx + 1}`;
-            const input = document.createElement('input');
-            input.type = 'number';
-            input.id = `edit-${sessionName}-${idx}`;
-            input.className = 'rep-input';
-            input.inputMode = 'numeric';
-            input.pattern = '[0-9]*';
-            input.value = set.reps || 0;
-            input.setAttribute('aria-label', `Edit ${sessionName} Set ${idx + 1} Reps`);
-            row.appendChild(label);
-            row.appendChild(input);
-            // Delete button for extra sets (beyond 3)
-            if (idx >= 3) {
-              const delBtn = document.createElement('button');
-              delBtn.className = 'btn-delete-set';
-              delBtn.dataset.session = sessionName;
-              delBtn.dataset.setIndex = idx;
-              delBtn.setAttribute('aria-label', `Remove Set ${idx + 1}`);
-              delBtn.textContent = '✕';
-              delBtn.addEventListener('click', () => {
-                const wData = state.calendarData[dateStr] || createEmptyWorkout(dateStr);
-                const clone = JSON.parse(JSON.stringify(wData));
-                if (clone[sessionName].sets.length > 1) {
-                  clone[sessionName].sets.splice(idx, 1);
-                  const newCalData = { ...state.calendarData, [dateStr]: clone };
-                  Store.setState({ calendarData: newCalData });
-                  renderHistoryDetail();
-                }
-              });
-              row.appendChild(delBtn);
-            }
-            wrapper.appendChild(row);
-          });
+  let repsPerMin = 15;
+  let durationMins = 10;
+  let isEndless = false;
+  let restEveryN = 0;
+  let emomState = 'SETUP'; // 'SETUP' | 'MORPHING' | 'RUNNING' | 'RECHARGING'
+  let morphProgress = 0;
+  let currentRound = 1;
+  let completedRounds = 0;
+  let setDoneForCurrentMinute = false;
+  let timeRemaining = 60.0;
+  let animFrame = null;
+  let lastTimestamp = 0;
+  let wakeLock = null;
 
-          // "+ Satz hinzufügen" for retro edit
-          const addBtn = document.createElement('button');
-          addBtn.className = 'btn-add-set';
-          addBtn.dataset.session = sessionName;
-          addBtn.setAttribute('aria-label', `Add set to ${sessionName}`);
-          addBtn.textContent = '+ Satz hinzufügen';
-          addBtn.addEventListener('click', () => {
-            const wData = state.calendarData[dateStr] || createEmptyWorkout(dateStr);
-            const clone = JSON.parse(JSON.stringify(wData));
-            clone[sessionName].sets.push({ reps: 0, timestamp: null });
-            const newCalData = { ...state.calendarData, [dateStr]: clone };
-            Store.setState({ calendarData: newCalData });
-            renderHistoryDetail();
-          });
-          wrapper.appendChild(addBtn);
-        };
+  // Wake lock helpers
+  async function acquireWakeLock() {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } catch (_) {}
+    }
+  }
+  async function releaseWakeLock() {
+    if (wakeLock) { try { await wakeLock.release(); } catch (_) {} wakeLock = null; }
+  }
 
-        renderRetroSession('morning', 'retro-edit-morning');
-        renderRetroSession('evening', 'retro-edit-evening');
+  // Easings
+  function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
+  function easeOutCubic(t)   { return 1 - Math.pow(1-t, 3); }
 
+  function isRestSetMinute(round) { return restEveryN >= 2 && round % restEveryN === 0; }
+
+  function setPlankInteriorLocked(locked) {
+    const d = locked ? 'none' : 'block';
+    const v = locked ? 'hidden' : 'visible';
+    plankPath.style.display = d; plankPath.style.visibility = v;
+    headNode.style.display = d; headNode.style.visibility = v;
+    floorLine.style.display = d; floorLine.style.visibility = v;
+  }
+
+  function setColorTheme(mode) {
+    if (mode === 'REST') {
+      gradStop1.setAttribute('stop-color', '#00F0FF');
+      gradStop2.setAttribute('stop-color', '#00A8FF');
+      gradStop3.setAttribute('stop-color', '#0066FF');
+      ambientGlow.className = 'absolute top-6 left-1/2 -translate-x-1/2 w-[280px] h-[280px] rounded-full bg-cyber-cyan/15 blur-[75px] pointer-events-none transition-colors duration-500';
     } else {
-        detailsContainer.classList.remove('hidden');
-        editContainer.classList.add('hidden');
-        
-        // Hide edit button for future dates
-        if (Dates.isFutureDate(state.historyDate)) {
-            editBtn.style.display = 'none';
-        } else {
-            editBtn.style.display = 'block';
-        }
-
-        const calcTotal = (session) => session?.sets?.reduce((sum, s) => sum + s.reps, 0) || 0;
-        const mTotal = calcTotal(data?.morning);
-        const eTotal = calcTotal(data?.evening);
-
-        // EMOM sessions for this day
-        const emomSessions = data?.emom || [];
-        const emomTotal = emomSessions.reduce((s, e) => s + (e.totalReps || 0), 0);
-        const emomRounds = emomSessions.reduce((s, e) => s + (e.completedRounds || 0), 0);
-
-        document.getElementById('detail-morning').textContent = `${mTotal} reps`;
-        document.getElementById('detail-evening').textContent = `${eTotal} reps`;
-        const emomEl = document.getElementById('detail-emom');
-        if (emomEl) {
-          emomEl.textContent = emomSessions.length > 0
-            ? `${emomRounds} Runden · ${emomTotal} Reps`
-            : '—';
-        }
-        document.getElementById('detail-total').textContent = `${mTotal + eTotal + emomTotal} reps`;
+      gradStop1.setAttribute('stop-color', '#FF8800');
+      gradStop2.setAttribute('stop-color', '#FF4D00');
+      gradStop3.setAttribute('stop-color', '#FF2A00');
+      ambientGlow.className = 'absolute top-6 left-1/2 -translate-x-1/2 w-[280px] h-[280px] rounded-full bg-laser-orange/10 blur-[75px] pointer-events-none transition-colors duration-500';
     }
   }
 
-  async function saveRetroactiveEdit() {
-    const state = Store.getState();
-    const dateStr = Dates.formatDate(state.historyDate);
-    
-    let wData = state.calendarData[dateStr] || createEmptyWorkout(dateStr);
-    wData = JSON.parse(JSON.stringify(wData));
+  function syncSetupUI() {
+    repsDisplay.textContent = repsPerMin;
+    if (isEndless) {
+      minsDisplay.textContent = '∞';
+      btnEndless.className = 'px-2.5 py-1 rounded-lg text-xs font-bold border border-laser-orange/50 bg-laser-orange/20 text-laser-amber tap-btn';
+    } else {
+      minsDisplay.textContent = `${durationMins} Min`;
+      btnEndless.className = 'px-2.5 py-1 rounded-lg text-xs font-bold border border-white/10 bg-white/5 text-slate-400 tap-btn';
+    }
+    if (restEveryN === 0) {
+      restDisplay.textContent = 'Aus';
+      restDisplay.className = 'w-24 text-center font-bold text-sm text-slate-400 tabular-nums';
+    } else {
+      restDisplay.textContent = `Jede ${restEveryN}. Min`;
+      restDisplay.className = 'w-24 text-center font-bold text-sm text-cyber-cyan tabular-nums';
+    }
+  }
 
-    // Read all dynamically rendered edit inputs for each session
-    const readRetroSession = (sessionName) => {
-      const sets = [];
-      let idx = 0;
-      // Iterate as long as inputs exist
-      while (true) {
-        const input = document.getElementById(`edit-${sessionName}-${idx}`);
-        if (!input) break;
-        let reps = parseInt(input.value, 10) || 0;
-        if (reps < 0) reps = 0;
-        if (reps > 999) reps = 999;
-        sets.push({
-          reps,
-          timestamp: wData[sessionName].sets[idx]?.timestamp || null
-        });
-        idx++;
-      }
-      if (sets.length === 0) {
-        // Fallback: preserve existing sets
-        sets.push(...(wData[sessionName].sets || [{ reps: 0, timestamp: null }]));
-      }
-      wData[sessionName].sets = sets;
-      wData[sessionName].completed = sets.some(s => s.reps > 0);
+  function syncWorkoutUI() {
+    liveRoundText.textContent = isEndless ? `Runde ${currentRound}` : `Runde ${currentRound} / ${durationMins}`;
+    if (isRestSetMinute(currentRound)) {
+      setColorTheme('REST');
+      livePhaseLabel.textContent = 'Rest-Set';
+      livePhaseLabel.className = 'text-[11px] font-semibold uppercase tracking-wider text-cyber-cyan block';
+      liveTargetText.textContent = 'Pause';
+      btnSetDone.disabled = true;
+      btnSetDone.className = 'w-full h-[54px] rounded-2xl bg-white/[0.04] border border-white/[0.07] text-slate-500 font-bold text-sm tracking-wide flex items-center justify-center gap-2 cursor-not-allowed opacity-50';
+      setDoneText.textContent = 'Rest-Set Pause aktiv';
+    } else if (setDoneForCurrentMinute) {
+      setColorTheme('REST');
+      livePhaseLabel.textContent = 'Pause bis nächste Min';
+      livePhaseLabel.className = 'text-[11px] font-semibold uppercase tracking-wider text-cyber-cyan block';
+      liveTargetText.textContent = `${repsPerMin} ✓`;
+      btnSetDone.disabled = true;
+      btnSetDone.className = 'w-full h-[54px] rounded-2xl bg-white/[0.04] border border-white/[0.07] text-slate-500 font-bold text-sm tracking-wide flex items-center justify-center gap-2 cursor-not-allowed opacity-50';
+      setDoneText.textContent = 'Satz fertig ✓';
+    } else {
+      setColorTheme('WORK');
+      livePhaseLabel.textContent = 'Ziel';
+      livePhaseLabel.className = 'text-[11px] font-semibold uppercase tracking-wider text-laser-amber block';
+      liveTargetText.textContent = `${repsPerMin} Push-Ups`;
+      btnSetDone.disabled = false;
+      btnSetDone.className = 'w-full h-[54px] rounded-2xl bg-cyber-cyan/15 border border-cyber-cyan/40 text-cyber-cyan font-bold text-sm tracking-wide flex items-center justify-center gap-2 tap-btn';
+      setDoneText.textContent = 'Satz fertig';
+    }
+  }
+
+  function renderMorph(p) {
+    morphProgress = Math.max(0, Math.min(1, p));
+    if (morphProgress >= 0.999) {
+      setPlankInteriorLocked(true);
+    } else {
+      setPlankInteriorLocked(false);
+      const floorT = Math.min(1, morphProgress / 0.4);
+      floorLine.style.opacity = (1 - easeInOutCubic(floorT)).toFixed(3);
+      const plankT = Math.min(1, morphProgress / 0.55);
+      const remLen = Math.max(0, PLANK_TOTAL_LEN * (1 - easeInOutCubic(plankT)));
+      plankPath.setAttribute('stroke-dasharray', `${remLen.toFixed(2)} ${PLANK_TOTAL_LEN}`);
+      plankPath.setAttribute('stroke-linecap', remLen < 4 ? 'butt' : 'round');
+      plankPath.style.opacity = remLen < 2 ? '0' : '1';
+      const headT = easeInOutCubic(Math.min(1, morphProgress / 0.45));
+      headNode.setAttribute('cx', (352 + (304-352)*headT).toFixed(2));
+      headNode.setAttribute('cy', (190 + (220-190)*headT).toFixed(2));
+      headNode.setAttribute('r', Math.max(0, 22*(1-headT)).toFixed(2));
+      headNode.style.opacity = (1-headT).toFixed(3);
+    }
+    const ringRaw = Math.max(0, Math.min(1, (morphProgress - 0.18) / 0.65));
+    const ringEased = easeInOutCubic(ringRaw);
+    const currentArc = ICON_ARC_LEN + ringEased * (TOTAL_RING_LEN - ICON_ARC_LEN);
+    emomRing.setAttribute('stroke-dasharray', `${currentArc.toFixed(2)} ${TOTAL_RING_LEN.toFixed(2)}`);
+    const secRaw = Math.max(0, Math.min(1, (morphProgress - 0.45) / 0.55));
+    const secEased = easeOutCubic(secRaw);
+    centerSecsGroup.setAttribute('opacity', secEased.toFixed(3));
+    centerSecsGroup.setAttribute('transform', `scale(${(0.88 + 0.12*secEased).toFixed(3)})`);
+    centerSecsText.textContent = '60';
+  }
+
+  function renderCountdown() {
+    setPlankInteriorLocked(true);
+    const fraction = Math.max(0, Math.min(1, timeRemaining / 60));
+    const arcLen = fraction * TOTAL_RING_LEN;
+    emomRing.setAttribute('stroke-dasharray', `${arcLen.toFixed(2)} ${TOTAL_RING_LEN.toFixed(2)}`);
+    centerSecsText.textContent = Math.max(1, Math.ceil(timeRemaining)).toString();
+  }
+
+  function cancelLoop() {
+    if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  }
+
+  function startWorkout() {
+    cancelLoop();
+    emomState = 'MORPHING';
+    currentRound = 1;
+    completedRounds = 0;
+    setDoneForCurrentMinute = false;
+    timeRemaining = 60.0;
+    acquireWakeLock();
+    setupControls.classList.add('hidden');
+    workoutControls.classList.remove('hidden');
+    syncWorkoutUI();
+    const startTime = performance.now();
+    const dur = 750;
+    function morphStep(now) {
+      const t = Math.min(1, (now - startTime) / dur);
+      renderMorph(t);
+      if (t < 1) { animFrame = requestAnimationFrame(morphStep); }
+      else { setPlankInteriorLocked(true); startCountdownLoop(); }
+    }
+    animFrame = requestAnimationFrame(morphStep);
+  }
+
+  function startCountdownLoop() {
+    cancelLoop();
+    setPlankInteriorLocked(true);
+    emomState = 'RUNNING';
+    lastTimestamp = performance.now();
+    function tick(now) {
+      const dt = (now - lastTimestamp) / 1000;
+      lastTimestamp = now;
+      timeRemaining -= dt;
+      if (timeRemaining <= 0) { handleMinuteFinished(); }
+      else { renderCountdown(); animFrame = requestAnimationFrame(tick); }
+    }
+    animFrame = requestAnimationFrame(tick);
+  }
+
+  function handleMinuteFinished() {
+    cancelLoop();
+    setPlankInteriorLocked(true);
+    if (!isEndless && currentRound >= durationMins) {
+      stopAndReverseMorph(true); // auto-finish
+      return;
+    }
+    currentRound++;
+    setDoneForCurrentMinute = false;
+    timeRemaining = 60.0;
+    centerSecsText.textContent = '60';
+    syncWorkoutUI();
+    emomState = 'RECHARGING';
+    const startTime = performance.now();
+    const dur = 320;
+    function rechargeStep(now) {
+      setPlankInteriorLocked(true);
+      const t = Math.min(1, (now - startTime) / dur);
+      const arcLen = easeOutCubic(t) * TOTAL_RING_LEN;
+      emomRing.setAttribute('stroke-dasharray', `${arcLen.toFixed(2)} ${TOTAL_RING_LEN.toFixed(2)}`);
+      if (t < 1) { animFrame = requestAnimationFrame(rechargeStep); }
+      else { startCountdownLoop(); }
+    }
+    animFrame = requestAnimationFrame(rechargeStep);
+  }
+
+  async function stopAndReverseMorph(autoFinish = false) {
+    cancelLoop();
+    releaseWakeLock();
+    emomState = 'MORPHING';
+    setColorTheme('WORK');
+    workoutControls.classList.add('hidden');
+    setupControls.classList.remove('hidden');
+    // Save EMOM workout to DB
+    if (completedRounds > 0) {
+      await saveEmomToDb();
+    } else if (!autoFinish) {
+      Toast.show('EMOM beendet — keine Runden gezählt.', 'info');
+    }
+    const startTime = performance.now();
+    const dur = 600;
+    function reverseStep(now) {
+      const t = Math.min(1, (now - startTime) / dur);
+      renderMorph(1 - t);
+      if (t < 1) { animFrame = requestAnimationFrame(reverseStep); }
+      else { emomState = 'SETUP'; renderMorph(0); }
+    }
+    animFrame = requestAnimationFrame(reverseStep);
+  }
+
+  async function saveEmomToDb() {
+    const totalReps = completedRounds * repsPerMin;
+    const session = {
+      targetRepsPerMinute: repsPerMin,
+      completedRounds,
+      totalReps,
+      failedRoundReps: 0,
+      timestamp: new Date().toISOString()
     };
-
-    readRetroSession('morning');
-    readRetroSession('evening');
-
-    // Only save if there's data, otherwise if it's all 0, maybe delete it to save space?
-    // Let's just save it.
+    const todayStr = Dates.formatDate(Dates.getEffectiveDate());
+    const wData = (await DB.getWorkout(todayStr)) || createEmptyWorkout(todayStr);
+    if (!Array.isArray(wData.emom)) wData.emom = [];
+    wData.emom.push(session);
     await DB.saveWorkout(wData);
-    
-    // Also update todayData if we edited today
-    if (dateStr === Dates.formatDate(Dates.getEffectiveDate())) {
-        Store.setState({ todayData: wData });
+    // Also update in-memory today data if today's tab is loaded
+    if (AppState.todayData && AppState.todayStr === todayStr) {
+      AppState.todayData = wData;
     }
-
     await Streak.update();
-    
-    // Reload calendar data to reflect changes
-    const year = state.calendarMonth.getFullYear();
-    const month = state.calendarMonth.getMonth();
-    await loadMonthData(year, month);
-    
-    Store.setState({ isEditing: false });
-    Toast.show('Workout updated', 'success');
+    Toast.show(`EMOM gespeichert 💪  ${completedRounds} Runden · ${totalReps} Reps`, 'success', 4000);
+    // Refresh stats if already built
+    if (AppState.currentTab === 'stats') renderStatsAndHeatmap();
   }
 
-  // --- Stats View ---
-  let chartInstances = {};
+  // EMOM button listeners
+  document.getElementById('reps-minus').addEventListener('click', () => { repsPerMin = Math.max(1, repsPerMin-1); syncSetupUI(); });
+  document.getElementById('reps-plus').addEventListener('click', () => { repsPerMin = Math.min(100, repsPerMin+1); syncSetupUI(); });
+  document.getElementById('mins-minus').addEventListener('click', () => { isEndless = false; durationMins = Math.max(1, durationMins-1); syncSetupUI(); });
+  document.getElementById('mins-plus').addEventListener('click', () => { isEndless = false; durationMins = Math.min(60, durationMins+1); syncSetupUI(); });
+  btnEndless.addEventListener('click', () => { isEndless = !isEndless; syncSetupUI(); });
+  document.getElementById('rest-minus').addEventListener('click', () => { restEveryN = restEveryN <= 2 ? 0 : restEveryN-1; syncSetupUI(); });
+  document.getElementById('rest-plus').addEventListener('click', () => { restEveryN = restEveryN === 0 ? 2 : Math.min(15, restEveryN+1); syncSetupUI(); });
+  document.getElementById('btn-start').addEventListener('click', startWorkout);
+  document.getElementById('svg-stage').addEventListener('click', () => { if (emomState === 'SETUP') startWorkout(); });
 
-  async function renderStatsView() {
-    const workouts = await DB.getAllWorkouts();
-    const state = Store.getState();
-    
-    document.getElementById('stat-current-streak').textContent = `🔥 ${state.streak.current}`;
-    document.getElementById('stat-longest-streak').textContent = state.streak.longest;
-    
-    let bestSet = 0;
+  btnSetDone.addEventListener('click', async () => {
+    if (setDoneForCurrentMinute || isRestSetMinute(currentRound)) return;
+    setDoneForCurrentMinute = true;
+    completedRounds++;
+    syncWorkoutUI();
+    Toast.show(`Runde ${completedRounds} ✅  +${repsPerMin} Reps`, 'success', 1800);
+  });
+
+  document.getElementById('btn-stop').addEventListener('click', () => {
+    if (completedRounds > 0) {
+      const totalReps = completedRounds * repsPerMin;
+      if (confirm(`Workout beenden?\n${completedRounds} Runden (${totalReps} Reps) werden gespeichert.\nDie aktuelle Runde ${currentRound} zählt 0.`)) {
+        stopAndReverseMorph(false);
+      }
+    } else {
+      stopAndReverseMorph(false);
+    }
+  });
+
+  // Re-acquire wake lock when page becomes visible
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && emomState === 'RUNNING' && !wakeLock) {
+      await acquireWakeLock();
+    }
+  });
+
+  // ============================================================
+  // 12. STATS TAB — HEATMAP, KPIs, CHARTS, PERSONAL RECORDS
+  // ============================================================
+
+  function getHeatLevelClass(total) {
+    if (total <= 0) return 'heat-0';
+    if (total < 30)  return 'heat-1';
+    if (total < 60)  return 'heat-2';
+    if (total < 90)  return 'heat-3';
+    return 'heat-4';
+  }
+
+  async function buildHeatmapData() {
+    const allWorkouts = await DB.getAllWorkouts();
+    const wMap = {};
+    allWorkouts.forEach(w => { wMap[w.date] = w; });
+
+    const today = Dates.getEffectiveDate();
+    const TOTAL_DAYS = 84;
+    const days = [];
+
+    for (let i = TOTAL_DAYS - 1; i >= 0; i--) {
+      const d = Dates.addDays(today, -i);
+      const dateStr = Dates.formatDate(d);
+      const w = wMap[dateStr] || null;
+      const morningTotal = w ? workoutMorningTotal(w) : 0;
+      const eveningTotal = w ? workoutEveningTotal(w) : 0;
+      const emomTotal    = w ? workoutEmomTotal(w) : 0;
+      const total = morningTotal + eveningTotal + emomTotal;
+      const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+      const mmdd = Dates.formatMMDD(d);
+      days.push({
+        date: dateStr,
+        label,
+        mmdd,
+        dayObj: d,
+        morningTotal,
+        eveningTotal,
+        emomTotal,
+        total,
+        workoutData: w
+      });
+    }
+    AppState.heatmapDays = days;
+    return days;
+  }
+
+  async function renderStatsAndHeatmap() {
+    const days = await buildHeatmapData();
+    const allWorkouts = await DB.getAllWorkouts();
+    const TODAY_INDEX = days.length - 1;
+
+    // Default selected day to today if not set or invalid
+    const todayDate = Dates.formatDate(Dates.getEffectiveDate());
+    if (!AppState.selectedDayDate || !days.find(d => d.date === AppState.selectedDayDate)) {
+      AppState.selectedDayDate = todayDate;
+    }
+    const selectedIdx = days.findIndex(d => d.date === AppState.selectedDayDate);
+
+    // -- KPIs --
+    const currentStreak = AppState.streak.current;
+    const longestStreak = AppState.streak.longest;
+
+    const rangeCount = AppState.currentChartRange === 'all'
+      ? days.length
+      : Math.min(days.length, parseInt(AppState.currentChartRange, 10));
+    const rangeSlice = days.slice(days.length - rangeCount);
+    const rangeTotal = rangeSlice.reduce((acc, d) => acc + d.total, 0);
+    const rangeAvg = rangeCount > 0 ? (rangeTotal / rangeCount).toFixed(1) : '0.0';
+
+    document.getElementById('kpi-current-streak').textContent = currentStreak;
+    document.getElementById('header-streak-count').textContent = currentStreak;
+    document.getElementById('kpi-longest-streak').textContent = longestStreak;
+    document.getElementById('kpi-total-reps').textContent = rangeTotal.toLocaleString('en-US');
+    document.getElementById('kpi-daily-avg').textContent = rangeAvg;
+
+    // -- Month labels --
+    const monthLabelsEl = document.getElementById('heatmap-month-labels');
+    if (monthLabelsEl) {
+      const seen = new Set();
+      const labelItems = [];
+      days.forEach(d => {
+        const mon = d.dayObj.toLocaleDateString('en-US', { month: 'short' });
+        if (!seen.has(mon)) {
+          seen.add(mon);
+          labelItems.push({ month: mon, year: d.dayObj.getFullYear() });
+        }
+      });
+      monthLabelsEl.innerHTML = labelItems.map((item, idx) => {
+        const isLast = idx === labelItems.length - 1;
+        return `<span>${item.month}${isLast ? ' ' + item.year : ''}</span>`;
+      }).join('');
+    }
+
+    // -- Heatmap grid --
+    const heatmapGrid = document.getElementById('heatmap-grid');
+    let colsHTML = '';
+    for (let w = 0; w < 12; w++) {
+      let cellsHTML = '';
+      for (let dow = 0; dow < 7; dow++) {
+        const idx = w * 7 + dow;
+        const dayObj = days[idx];
+        if (!dayObj) {
+          cellsHTML += `<div class="w-full aspect-square rounded-[4px] heat-0"></div>`;
+          continue;
+        }
+        const heatClass = getHeatLevelClass(dayObj.total);
+        const isSelected = idx === selectedIdx;
+        const ringStyle = isSelected ? 'ring-2 ring-white scale-110 z-10' : 'hover:ring-1 hover:ring-white/50';
+        cellsHTML += `<button data-date="${dayObj.date}" title="${dayObj.label}: ${dayObj.total} reps" class="heatmap-cell w-full aspect-square rounded-[4px] ${heatClass} ${ringStyle} transition-transform"></button>`;
+      }
+      colsHTML += `<div class="flex flex-col gap-1.5">${cellsHTML}</div>`;
+    }
+    heatmapGrid.innerHTML = colsHTML;
+
+    heatmapGrid.querySelectorAll('.heatmap-cell').forEach(cell => {
+      cell.addEventListener('click', () => {
+        AppState.selectedDayDate = cell.getAttribute('data-date');
+        AppState.isDayEditMode = false;
+        renderStatsAndHeatmap();
+      });
+    });
+
+    // -- Day inspector --
+    const selDay = days[selectedIdx >= 0 ? selectedIdx : TODAY_INDEX];
+    const selTitle = document.getElementById('selected-day-title');
+    if (selTitle) {
+      selTitle.textContent = selDay.date === todayDate ? `${selDay.label} (Today)` : selDay.label;
+    }
+
+    document.getElementById('inspector-morning').textContent = `${selDay.morningTotal} reps`;
+    document.getElementById('inspector-evening').textContent = `${selDay.eveningTotal} reps`;
+    document.getElementById('inspector-emom').textContent = selDay.emomTotal > 0 ? `${selDay.emomTotal} reps` : '—';
+    document.getElementById('inspector-total').textContent = `${selDay.total} reps`;
+
+    // Edit values (set from current data)
+    AppState.editDayMorning = selDay.morningTotal;
+    AppState.editDayEvening = selDay.eveningTotal;
+    AppState.editDayEmom    = selDay.emomTotal;
+    document.getElementById('edit-val-morning').textContent = AppState.editDayMorning;
+    document.getElementById('edit-val-evening').textContent = AppState.editDayEvening;
+    document.getElementById('edit-val-emom').textContent    = AppState.editDayEmom;
+
+    // Toggle edit / readonly views
+    const dayReadonlyView = document.getElementById('day-readonly-view');
+    const dayEditView     = document.getElementById('day-edit-view');
+    const btnToggle       = document.getElementById('btn-toggle-day-edit');
+    if (AppState.isDayEditMode) {
+      dayReadonlyView.classList.add('hidden');
+      dayEditView.classList.remove('hidden');
+      btnToggle.textContent = 'Done';
+      btnToggle.className = 'px-2.5 py-1 rounded-lg bg-laser-orange text-white text-[11px] font-bold tap-btn';
+    } else {
+      dayReadonlyView.classList.remove('hidden');
+      dayEditView.classList.add('hidden');
+      btnToggle.textContent = 'Edit';
+      btnToggle.className = 'px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[11px] font-bold text-slate-200 tap-btn';
+    }
+
+    // -- Charts --
+    renderDailyChart(days, TODAY_INDEX, selectedIdx);
+    renderRollingAvgChart(days, TODAY_INDEX, selectedIdx);
+
+    // -- Personal Records --
+    renderPersonalRecords(allWorkouts);
+  }
+
+  // Day editor toggle
+  document.getElementById('btn-toggle-day-edit').addEventListener('click', () => {
+    AppState.isDayEditMode = !AppState.isDayEditMode;
+    renderStatsAndHeatmap();
+  });
+
+  // Day editor steppers
+  document.querySelectorAll('.day-edit-step').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const field = btn.getAttribute('data-field');
+      const delta = parseInt(btn.getAttribute('data-delta'), 10);
+
+      if (field === 'morning') AppState.editDayMorning = Math.max(0, AppState.editDayMorning + delta);
+      else if (field === 'evening') AppState.editDayEvening = Math.max(0, AppState.editDayEvening + delta);
+      else if (field === 'emom')   AppState.editDayEmom = Math.max(0, AppState.editDayEmom + delta);
+
+      document.getElementById('edit-val-morning').textContent = AppState.editDayMorning;
+      document.getElementById('edit-val-evening').textContent = AppState.editDayEvening;
+      document.getElementById('edit-val-emom').textContent    = AppState.editDayEmom;
+
+      // Persist to DB immediately
+      await persistDayEdit(AppState.selectedDayDate, AppState.editDayMorning, AppState.editDayEvening, AppState.editDayEmom);
+      // Sync today data if editing today
+      if (AppState.selectedDayDate === AppState.todayStr && AppState.todayData) {
+        AppState.todayData = await DB.getWorkout(AppState.todayStr) || AppState.todayData;
+        renderTodaySessions();
+      }
+    });
+  });
+
+  async function persistDayEdit(dateStr, morningTotal, eveningTotal, emomTotal) {
+    let wData = (await DB.getWorkout(dateStr)) || createEmptyWorkout(dateStr);
+    // Adjust morning as a single set
+    wData.morning.sets = [{ reps: morningTotal, timestamp: morningTotal > 0 ? (wData.morning.sets[0]?.timestamp || new Date().toISOString()) : null }];
+    wData.morning.completed = morningTotal > 0;
+    // Adjust evening as a single set
+    wData.evening.sets = [{ reps: eveningTotal, timestamp: eveningTotal > 0 ? (wData.evening.sets[0]?.timestamp || new Date().toISOString()) : null }];
+    wData.evening.completed = eveningTotal > 0;
+    // Adjust EMOM as a single synthetic session
+    if (emomTotal > 0) {
+      const existingEmomTotal = (wData.emom || []).reduce((s, e) => s + (e.totalReps || 0), 0);
+      if (existingEmomTotal !== emomTotal) {
+        wData.emom = [{ targetRepsPerMinute: 0, completedRounds: 0, totalReps: emomTotal, failedRoundReps: 0, timestamp: new Date().toISOString() }];
+      }
+    } else {
+      wData.emom = [];
+    }
+    await DB.saveWorkout(wData);
+    await Streak.update();
+  }
+
+  // Range filter
+  document.querySelectorAll('.range-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      AppState.currentChartRange = btn.getAttribute('data-range');
+      document.querySelectorAll('.range-btn').forEach(b => {
+        b.className = 'range-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white tap-btn';
+      });
+      btn.className = 'range-btn px-2.5 py-1 rounded-lg bg-white/10 text-white tap-btn';
+      renderStatsAndHeatmap();
+    });
+  });
+
+  // -- Spline chart renderer --
+  function drawSplineChart(config) {
+    const { pointsData, yStep, minYMax, gridLayerId, areaPathId, linePathId, dotsLayerId, xlabelsLayerId, dotColor } = config;
+    const gridLayer    = document.getElementById(gridLayerId);
+    const areaPath     = document.getElementById(areaPathId);
+    const linePath     = document.getElementById(linePathId);
+    const dotsLayer    = document.getElementById(dotsLayerId);
+    const xlabelsLayer = document.getElementById(xlabelsLayerId);
+    if (!gridLayer || !areaPath || !linePath || !dotsLayer || !xlabelsLayer) return;
+    if (pointsData.length < 2) {
+      gridLayer.innerHTML = '';
+      areaPath.setAttribute('d', '');
+      linePath.setAttribute('d', '');
+      dotsLayer.innerHTML = '';
+      xlabelsLayer.innerHTML = '';
+      return;
+    }
+
+    const leftPad = 30, rightPad = 304, topPad = 12, bottomPad = 132;
+    const chartW = rightPad - leftPad;
+    const chartH = bottomPad - topPad;
+    const maxVal = Math.max(minYMax, ...pointsData.map(p => p.val));
+    const yMax = Math.ceil(maxVal / yStep) * yStep;
+    const numSteps = Math.round(yMax / yStep);
+
+    let gridHTML = '';
+    for (let s = 0; s <= numSteps; s++) {
+      const val = s * yStep;
+      const y = bottomPad - (val / yMax) * chartH;
+      gridHTML += `<line x1="${leftPad}" y1="${y.toFixed(1)}" x2="${rightPad}" y2="${y.toFixed(1)}" stroke="#1B2232" stroke-width="1"/>`;
+      gridHTML += `<text x="${(leftPad-7).toFixed(1)}" y="${(y+3.5).toFixed(1)}" text-anchor="end" fill="#64748B" font-size="9.5" font-weight="600" class="tabular-nums">${val}</text>`;
+    }
+
+    const coords = pointsData.map((pt, i) => ({
+      ...pt,
+      x: leftPad + (i / (pointsData.length - 1)) * chartW,
+      y: bottomPad - Math.min(1, Math.max(0, pt.val / yMax)) * chartH
+    }));
+
+    coords.forEach(c => {
+      gridHTML += `<line x1="${c.x.toFixed(1)}" y1="${topPad}" x2="${c.x.toFixed(1)}" y2="${bottomPad}" stroke="#1B2232" stroke-width="1"/>`;
+    });
+    gridLayer.innerHTML = gridHTML;
+
+    let dLine = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const p0 = coords[i], p1 = coords[i+1];
+      const cpx1 = p0.x + (p1.x - p0.x)*0.42;
+      const cpy1 = Math.min(bottomPad, Math.max(topPad, p0.y));
+      const cpx2 = p1.x - (p1.x - p0.x)*0.42;
+      const cpy2 = Math.min(bottomPad, Math.max(topPad, p1.y));
+      dLine += ` C ${cpx1.toFixed(1)} ${cpy1.toFixed(1)}, ${cpx2.toFixed(1)} ${cpy2.toFixed(1)}, ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
+    }
+    const dArea = `${dLine} L ${coords[coords.length-1].x.toFixed(1)} ${bottomPad} L ${coords[0].x.toFixed(1)} ${bottomPad} Z`;
+    linePath.setAttribute('d', dLine);
+    areaPath.setAttribute('d', dArea);
+
+    const selDate = AppState.selectedDayDate;
+    dotsLayer.innerHTML = coords.map(c => {
+      const isSelected = c.date === selDate;
+      const r = isSelected ? 5 : 3.5;
+      const stroke = isSelected ? '#FFFFFF' : '#07090E';
+      return `<g class="chart-node cursor-pointer" data-date="${c.date}"><circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="11" fill="transparent"/><circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${r}" fill="${dotColor}" stroke="${stroke}" stroke-width="2"/></g>`;
+    }).join('');
+
+    xlabelsLayer.innerHTML = coords.map(c => {
+      const isSelected = c.date === selDate;
+      const color = isSelected ? '#FFFFFF' : '#64748B';
+      return `<text x="${c.x.toFixed(1)}" y="${bottomPad+19}" text-anchor="middle" fill="${color}" font-size="9.5" font-weight="600" class="tabular-nums">${c.mmdd}</text>`;
+    }).join('');
+
+    dotsLayer.querySelectorAll('.chart-node').forEach(node => {
+      node.addEventListener('click', () => {
+        AppState.selectedDayDate = node.getAttribute('data-date');
+        renderStatsAndHeatmap();
+      });
+    });
+  }
+
+  function renderDailyChart(days, todayIndex, selectedIdx) {
+    // Show last 7 days
+    const pointsData = [];
+    for (let offset = 6; offset >= 0; offset--) {
+      const idx = todayIndex - offset;
+      if (idx < 0 || idx >= days.length) continue;
+      const d = days[idx];
+      pointsData.push({ date: d.date, mmdd: d.mmdd, val: d.total });
+    }
+    if (pointsData.length < 2) return;
+    drawSplineChart({
+      pointsData, yStep: 10, minYMax: 30,
+      gridLayerId: 'daily-grid-layer', areaPathId: 'daily-area-path',
+      linePathId: 'daily-line-path', dotsLayerId: 'daily-dots-layer',
+      xlabelsLayerId: 'daily-xlabels-layer', dotColor: '#FF6A00'
+    });
+  }
+
+  function renderRollingAvgChart(days, todayIndex, selectedIdx) {
+    const pointsData = [];
+    for (let offset = 6; offset >= 0; offset--) {
+      const idx = todayIndex - offset;
+      if (idx < 0 || idx >= days.length) continue;
+      let sum7 = 0;
+      for (let k = 0; k < 7; k++) {
+        const di = idx - k;
+        if (di >= 0 && days[di]) sum7 += days[di].total;
+      }
+      const d = days[idx];
+      pointsData.push({ date: d.date, mmdd: d.mmdd, val: sum7 / 7 });
+    }
+    if (pointsData.length < 2) return;
+    drawSplineChart({
+      pointsData, yStep: 5, minYMax: 20,
+      gridLayerId: 'rolling-grid-layer', areaPathId: 'rolling-area-path',
+      linePathId: 'rolling-line-path', dotsLayerId: 'rolling-dots-layer',
+      xlabelsLayerId: 'rolling-xlabels-layer', dotColor: '#00F0FF'
+    });
+  }
+
+  function renderPersonalRecords(allWorkouts) {
+    let bestSingleSet = 0;
     let bestSession = 0;
     let bestDay = 0;
-    // Best EMOM: track by most completed rounds (tie-break: most reps)
-    let bestEmomRounds = 0;
     let bestEmomReps = 0;
-    
-    // Build a lookup map: date string -> { total, morning, evening }
-    const dailyDataMap = {};
 
-    workouts.forEach(w => {
-      let mTotal = 0;
-      let eTotal = 0;
-      let emomDayTotal = 0;
-      
-      if (w.morning?.sets) {
-        w.morning.sets.forEach(s => {
-          mTotal += s.reps;
-          if (s.reps > bestSet) bestSet = s.reps;
-        });
-      }
-      if (w.evening?.sets) {
-        w.evening.sets.forEach(s => {
-          eTotal += s.reps;
-          if (s.reps > bestSet) bestSet = s.reps;
-        });
-      }
-      if (Array.isArray(w.emom)) {
-        w.emom.forEach(sess => {
-          const sr = sess.totalReps || 0;
-          const scr = sess.completedRounds || 0;
-          emomDayTotal += sr;
-          // Better EMOM = more rounds; tie-break = more reps
-          if (scr > bestEmomRounds || (scr === bestEmomRounds && sr > bestEmomReps)) {
-            bestEmomRounds = scr;
-            bestEmomReps = sr;
-          }
-        });
-      }
-      
-      const dTotal = mTotal + eTotal + emomDayTotal;
-      if (dTotal > 0) {
-        dailyDataMap[w.date] = { date: w.date, total: dTotal, morning: mTotal, evening: eTotal };
-      }
-      
+    allWorkouts.forEach(w => {
+      (w.morning?.sets || []).forEach(s => { if (s.reps > bestSingleSet) bestSingleSet = s.reps; });
+      (w.evening?.sets || []).forEach(s => { if (s.reps > bestSingleSet) bestSingleSet = s.reps; });
+      const mTotal = workoutMorningTotal(w);
+      const eTotal = workoutEveningTotal(w);
+      const emomTotal = workoutEmomTotal(w);
       if (mTotal > bestSession) bestSession = mTotal;
       if (eTotal > bestSession) bestSession = eTotal;
+      const dTotal = mTotal + eTotal + emomTotal;
       if (dTotal > bestDay) bestDay = dTotal;
+      if (emomTotal > bestEmomReps) bestEmomReps = emomTotal;
     });
 
-    // All days with data in chronological order (used for the 'all' range)
-    const dailyData = Object.values(dailyDataMap).sort((a, b) => a.date.localeCompare(b.date));
-
-    // Compute range-aware Total Reps and Daily Average
-    const todayStr = Dates.formatDate(Dates.getEffectiveDate());
-    const rangeStr = state.chartRange;
-    let rangeStartStr;
-    let rangeDays; // total days in the window for averaging
-
-    if (rangeStr === 'all') {
-      rangeStartStr = dailyData.length > 0 ? dailyData[0].date : todayStr;
-      rangeDays = Dates.daysBetween(new Date(rangeStartStr), new Date(todayStr)) + 1;
-    } else {
-      const numDays = parseInt(rangeStr, 10);
-      rangeStartStr = Dates.formatDate(Dates.addDays(Dates.getEffectiveDate(), -(numDays - 1)));
-      rangeDays = numDays;
-    }
-
-    let rangeTotalReps = 0;
-    dailyData.forEach(d => {
-      if (d.date >= rangeStartStr && d.date <= todayStr) {
-        rangeTotalReps += d.total;
-      }
-    });
-
-    const rangeAvg = rangeDays > 0 ? (rangeTotalReps / rangeDays).toFixed(1) : '0.0';
-    
-    document.getElementById('stat-total-reps').textContent = rangeTotalReps;
-    document.getElementById('stat-daily-avg').textContent = rangeAvg;
-    
-    document.getElementById('record-set').textContent = bestSet;
-    document.getElementById('record-session').textContent = bestSession;
-    document.getElementById('record-day').textContent = bestDay;
-
-    // EMOM record
-    const emomRecordEl = document.getElementById('record-emom');
-    if (emomRecordEl) {
-      emomRecordEl.textContent = bestEmomRounds > 0
-        ? `${bestEmomRounds} Runden · ${bestEmomReps} Reps`
-        : '—';
-    }
-
-    renderCharts(dailyData, rangeStr);
+    document.getElementById('pr-best-single-set').textContent = bestSingleSet > 0 ? bestSingleSet : '—';
+    document.getElementById('pr-best-session').textContent    = bestSession > 0 ? bestSession : '—';
+    document.getElementById('pr-best-day').textContent        = bestDay > 0 ? bestDay : '—';
+    document.getElementById('pr-best-emom').textContent       = bestEmomReps > 0 ? `${bestEmomReps} reps` : '—';
   }
 
-  function calculateRollingAverage(dataArray, windowSize) {
-    const result = [];
-    for (let i = 0; i < dataArray.length; i++) {
-        let sum = 0;
-        let count = 0;
-        for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
-            sum += dataArray[j];
-            count++;
-        }
-        result.push(sum / count);
-    }
-    return result;
-  }
-
-  function renderCharts(dailyData, rangeStr) {
-    if (!window.Chart) return;
-
-    // Build a quick lookup: date string -> entry
-    const dataByDate = {};
-    dailyData.forEach(d => { dataByDate[d.date] = d; });
-
-    const todayDate = Dates.getEffectiveDate();
-    const todayStr = Dates.formatDate(todayDate);
-
-    // Determine start date for range
-    let startDate;
-    if (rangeStr === 'all') {
-      if (dailyData.length > 0) {
-        // Start from the earliest date with data
-        startDate = new Date(dailyData[0].date);
-      } else {
-        startDate = new Date(todayDate);
-      }
-    } else {
-      const numDays = parseInt(rangeStr, 10);
-      startDate = Dates.addDays(todayDate, -(numDays - 1));
-    }
-
-    // Build zero-filled array covering every day from startDate to today
-    const filteredData = [];
-    const cursor = new Date(startDate);
-    cursor.setHours(0, 0, 0, 0);
-    const endDate = new Date(todayDate);
-    endDate.setHours(0, 0, 0, 0);
-
-    while (cursor <= endDate) {
-      const dateStr = Dates.formatDate(cursor);
-      if (dataByDate[dateStr]) {
-        filteredData.push(dataByDate[dateStr]);
-      } else {
-        filteredData.push({ date: dateStr, total: 0, morning: 0, evening: 0 });
-      }
-      cursor.setDate(cursor.getDate() + 1);
-    }
-
-    const labels = filteredData.map(d => d.date.substring(5)); // MM-DD
-    const totals = filteredData.map(d => d.total);
-    const mornings = filteredData.map(d => d.morning);
-    const evenings = filteredData.map(d => d.evening);
-    const rollingAvgs = calculateRollingAverage(totals, 7);
-
-    Chart.defaults.color = '#a0a0a0';
-    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { color: '#a0a0a0' } },
-        tooltip: { backgroundColor: '#1a1a1a', titleColor: '#fff', bodyColor: '#fff' }
-      },
-      scales: {
-        x: { grid: { color: '#2a2a2a' }, ticks: { color: '#a0a0a0' } },
-        y: { grid: { color: '#2a2a2a' }, ticks: { color: '#a0a0a0' }, beginAtZero: true }
-      }
-    };
-
-    const drawChart = (id, type, dataObj) => {
-      const ctx = document.getElementById(id);
-      if (!ctx) return;
-      if (chartInstances[id]) chartInstances[id].destroy();
-      chartInstances[id] = new Chart(ctx, { type, data: dataObj, options: chartOptions });
-    };
-
-    // 1. Daily Total (Line)
-    drawChart('chart-daily', 'line', {
-      labels,
-      datasets: [{
-        label: 'Total Reps',
-        data: totals,
-        borderColor: '#4a9eff',
-        backgroundColor: 'rgba(74, 158, 255, 0.1)',
-        tension: 0.3,
-        fill: true,
-        pointBackgroundColor: '#4a9eff'
-      }]
-    });
-
-    // 2. Comparison (Bar)
-    drawChart('chart-comparison', 'bar', {
-      labels,
-      datasets: [
-        { label: 'Morning', data: mornings, backgroundColor: '#4a9eff' },
-        { label: 'Evening', data: evenings, backgroundColor: '#9b51e0' }
-      ]
-    });
-
-    // 3. 7-Day Rolling Average (Line)
-    drawChart('chart-rolling', 'line', {
-      labels,
-      datasets: [{
-        label: '7-Day Rolling Avg',
-        data: rollingAvgs,
-        borderColor: '#00c853',
-        backgroundColor: 'rgba(0, 200, 83, 0.1)',
-        tension: 0.4,
-        fill: true,
-        pointBackgroundColor: '#00c853'
-      }]
-    });
-  }
-
-  // ==========================================
-  // 7. SETTINGS & EXPORT / IMPORT
-  // ==========================================
-  
+  // ============================================================
+  // 13. SETTINGS MODAL
+  // ============================================================
   function toggleSettingsModal(show) {
-      const overlay = document.getElementById('modal-overlay');
-      if (overlay) {
-          if (show) {
-              overlay.classList.remove('hidden');
-          } else {
-              overlay.classList.add('hidden');
-          }
-      }
+    const overlay = document.getElementById('modal-overlay');
+    if (!overlay) return;
+    if (show) {
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+    } else {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
+    }
   }
 
   function setupSettings() {
-    const btnSettings = document.getElementById('btn-settings');
-    const btnClose = document.getElementById('btn-close-modal');
-    
-    if (btnSettings) btnSettings.addEventListener('click', () => toggleSettingsModal(true));
-    if (btnClose) btnClose.addEventListener('click', () => toggleSettingsModal(false));
+    document.getElementById('btn-settings')?.addEventListener('click', () => toggleSettingsModal(true));
+    document.getElementById('btn-close-modal')?.addEventListener('click', () => toggleSettingsModal(false));
+
+    document.getElementById('modal-overlay')?.addEventListener('click', (e) => {
+      if (e.target === document.getElementById('modal-overlay')) toggleSettingsModal(false);
+    });
 
     // Export
     document.getElementById('btn-export-data')?.addEventListener('click', async () => {
@@ -1471,7 +1380,7 @@
         try {
           const data = JSON.parse(event.target.result);
           await DB.importAll(data);
-          await initApp(); // Reload
+          await initApp();
           toggleSettingsModal(false);
           Toast.show('Data imported successfully!', 'success');
         } catch (err) {
@@ -1479,7 +1388,7 @@
         }
       };
       reader.readAsText(file);
-      e.target.value = ''; // reset
+      e.target.value = '';
     });
 
     // Clear
@@ -1497,170 +1406,21 @@
     });
   }
 
-  // ==========================================
-  // 8. EVENT LISTENERS & SETUP
-  // ==========================================
-  
-  function setupEventListeners() {
-    // Nav Tabs
-    document.querySelectorAll('.tab-btn').forEach(tab => {
-        tab.addEventListener('click', () => {
-            const target = tab.getAttribute('data-target');
-            Store.setState({ currentView: target });
-        });
-    });
-
-    // Range Selector
-    document.querySelectorAll('.range-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const range = btn.getAttribute('data-range');
-            Store.setState({ chartRange: range });
-            if (Store.getState().currentView === 'view-stats') {
-                renderStatsView(); // re-render charts
-            }
-        });
-    });
-
-    // Today View Inputs
-    const viewToday = document.getElementById('view-today');
-    if (viewToday) {
-        viewToday.addEventListener('input', handleSetInputChange);
-        viewToday.addEventListener('click', (e) => {
-          handleStepperClick(e);
-          handleAddSetClick(e);
-          handleDeleteSetClick(e);
-        });
+  // ============================================================
+  // 14. AUTO-SAVE ON VISIBILITY / BEFOREUNLOAD
+  // ============================================================
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && AppState.isDirty) {
+      saveTodayData();
     }
+  });
+  window.addEventListener('beforeunload', () => {
+    if (AppState.isDirty) saveTodayData();
+  });
 
-    const saveBtn = document.getElementById('btn-save-today');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
-          document.activeElement?.blur();
-          saveTodayData();
-      });
-    }
-
-    // Calendar Navigation
-    const prevBtn = document.getElementById('btn-prev-month');
-    const nextBtn = document.getElementById('btn-next-month');
-    
-    if (prevBtn) prevBtn.addEventListener('click', () => {
-      const d = Store.getState().calendarMonth;
-      const newD = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-      Store.setState({ calendarMonth: newD });
-      loadMonthData(newD.getFullYear(), newD.getMonth());
-    });
-    
-    if (nextBtn) nextBtn.addEventListener('click', () => {
-      const d = Store.getState().calendarMonth;
-      const newD = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-      Store.setState({ calendarMonth: newD });
-      loadMonthData(newD.getFullYear(), newD.getMonth());
-    });
-
-    // Retroactive Edit mode
-    const btnEdit = document.getElementById('btn-edit-day');
-    const btnSaveEdit = document.getElementById('btn-save-edit');
-    const btnCancelEdit = document.getElementById('btn-cancel-edit');
-    
-    if (btnEdit) btnEdit.addEventListener('click', () => Store.setState({ isEditing: true }));
-    if (btnCancelEdit) btnCancelEdit.addEventListener('click', () => Store.setState({ isEditing: false }));
-    if (btnSaveEdit) btnSaveEdit.addEventListener('click', saveRetroactiveEdit);
-
-    setupSettings();
-
-    // --- EMOM Event Listeners ---
-    // Preset buttons (5 / 10 / 15 / 20)
-    document.querySelectorAll('.emom-preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const reps = parseInt(btn.dataset.reps, 10);
-        const input = document.getElementById('emom-target-reps');
-        if (input) input.value = reps;
-        document.querySelectorAll('.emom-preset-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-
-    // Deselect presets when the free-text input is changed manually
-    document.getElementById('emom-target-reps')?.addEventListener('input', (e) => {
-      const val = parseInt(e.target.value, 10);
-      document.querySelectorAll('.emom-preset-btn').forEach(b => {
-        b.classList.toggle('active', parseInt(b.dataset.reps, 10) === val);
-      });
-    });
-
-    // Start button
-    document.getElementById('btn-emom-start')?.addEventListener('click', () => {
-      const repsInput = document.getElementById('emom-target-reps');
-      let reps = parseInt(repsInput?.value, 10) || 10;
-      if (reps < 1) reps = 1;
-      if (reps > 999) reps = 999;
-      EmomTracker.start(reps);
-    });
-
-    // "Runde geschafft"
-    document.getElementById('btn-emom-done')?.addEventListener('click', () => {
-      EmomTracker.completeRound();
-    });
-
-    // "Workout beenden"
-    document.getElementById('btn-emom-abort')?.addEventListener('click', () => {
-      if (EmomTracker.completedRounds > 0) {
-        const totalReps = EmomTracker.completedRounds * EmomTracker.targetReps;
-        if (confirm(
-          `Workout beenden?\n${EmomTracker.completedRounds} Runden (${totalReps} Reps) werden gespeichert.\n` +
-          `Die aktuelle Runde ${EmomTracker.currentRound} zählt 0.`
-        )) {
-          EmomTracker.abort();
-        }
-      } else {
-        // No rounds done yet — abort silently
-        EmomTracker.abort();
-      }
-    });
-
-    // Auto-save on visibility change / beforeunload
-    const handleAutoSave = () => {
-      if (Store.getState().isDirty) {
-        saveTodayData();
-      }
-    };
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') handleAutoSave();
-    });
-    window.addEventListener('beforeunload', handleAutoSave);
-
-    // Modal overlay click outside
-    const overlay = document.getElementById('modal-overlay');
-    if (overlay) {
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) toggleSettingsModal(false);
-      });
-    }
-  }
-
-  function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-        if (e.key === 'Enter') {
-            e.target.blur();
-            if (Store.getState().isEditing) {
-                saveRetroactiveEdit();
-            } else {
-                saveTodayData();
-            }
-        }
-        return;
-      }
-      if (e.key === '1') Store.setState({ currentView: 'view-today' });
-      if (e.key === '2') Store.setState({ currentView: 'view-history' });
-      if (e.key === '3') Store.setState({ currentView: 'view-stats' });
-      if (e.key === 'Escape') toggleSettingsModal(false);
-    });
-  }
-
+  // ============================================================
+  // 15. SERVICE WORKER
+  // ============================================================
   function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')
@@ -1669,42 +1429,51 @@
     }
   }
 
-  // ==========================================
-  // 9. INITIALIZATION
-  // ==========================================
-  
+  // ============================================================
+  // 16. INITIALIZATION
+  // ============================================================
   async function initApp() {
     await DB.init();
-    
+
     const todayStr = Dates.formatDate(Dates.getEffectiveDate());
+    AppState.todayStr = todayStr;
+
     let todayData = await DB.getWorkout(todayStr);
-    
     if (!todayData) {
       todayData = createEmptyWorkout(todayStr);
       await DB.saveWorkout(todayData);
     }
+    AppState.todayData = todayData;
 
+    // Load streak
     const streakMeta = await DB.getMeta('streak') || { current: 0, longest: 0, lastDate: null };
-    
-    Store.setState({ 
-      todayData, 
-      selectedDate: Dates.getEffectiveDate(),
-      streak: streakMeta,
-      calendarMonth: Dates.getEffectiveDate(),
-      isDirty: false
-    });
-    
-    await Streak.update(); // Recalculate streak to be safe
-    
-    Store.subscribe(updateDOM);
-    updateDOM(); // initial render
-    
-    loadMonthData(Dates.getEffectiveDate().getFullYear(), Dates.getEffectiveDate().getMonth());
+    AppState.streak = streakMeta;
+    await Streak.update();
+
+    // Set header date
+    const h1 = appTopBar.querySelector('h1');
+    if (h1) h1.textContent = Dates.formatDisplayDate(Dates.getEffectiveDate());
+
+    // Set selected day to today
+    AppState.selectedDayDate = todayStr;
+
+    // Render today sessions
+    renderTodaySessions();
+
+    // Initialize EMOM UI
+    syncSetupUI();
+    renderMorph(0);
+
+    // Start on EMOM tab (as the showcase shows)
+    switchTab('emom');
+
+    // Start clock
+    updateStatusBarClock();
+    setInterval(updateStatusBarClock, 30000);
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    setupEventListeners();
-    setupKeyboardShortcuts();
+    setupSettings();
     registerServiceWorker();
     initApp();
   });

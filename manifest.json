@@ -4,8 +4,8 @@
   "description": "Track your daily push-up discipline with morning and evening sessions",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#07090E",
+  "theme_color": "#07090E",
   "orientation": "portrait",
   "icons": [
     {

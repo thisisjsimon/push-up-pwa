@@ -1,299 +1,697 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de" class="dark">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#000000">
-    <title>Push-Up Discipline</title>
-    
-    <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-</head>
-<body>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#07090E">
+  <title>Push-Up Discipline</title>
 
-    <header class="app-header">
-        <div id="header-date" class="header-date">Today</div>
-        <div id="header-streak" class="header-streak">🔥 0</div>
-        <button id="btn-settings" class="icon-button" aria-label="Settings">⚙️</button>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            app: {
+              bg: '#07090E',
+              card: '#11151F',
+              cardHover: '#161B28',
+              input: '#0B0E16',
+              border: '#1E2536',
+              muted: '#64748B'
+            },
+            laser: {
+              orange: '#FF4D00',
+              amber: '#FF8800',
+              red: '#FF2A00'
+            },
+            cyber: {
+              cyan: '#00F0FF',
+              blue: '#0088FF'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "zero" 1;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .tap-btn {
+      transition: transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    }
+    .tap-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+    /* Custom Heatmap Levels */
+    .heat-0 { background-color: #151A26; border: 1px solid rgba(255,255,255,0.03); }
+    .heat-1 { background-color: #4D2212; border: 1px solid rgba(255,77,0,0.2); }
+    .heat-2 { background-color: #8F320B; border: 1px solid rgba(255,77,0,0.35); }
+    .heat-3 { background-color: #CC4202; border: 1px solid rgba(255,110,0,0.5); }
+    .heat-4 { background-color: #FF5500; border: 1px solid #FF9944; box-shadow: 0 0 8px rgba(255, 77, 0, 0.45); }
+
+    /* Toast Notifications */
+    #toast-container {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      width: max-content;
+      max-width: 320px;
+    }
+    .toast {
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      background: #1E2536;
+      border: 1px solid rgba(255,255,255,0.1);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+      backdrop-filter: blur(12px);
+    }
+    .toast.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .toast.success { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3); }
+    .toast.error   { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); }
+    .toast.info    { background: rgba(255,136,0,0.12); border-color: rgba(255,136,0,0.25); }
+  </style>
+</head>
+<body class="bg-[#040508] text-white font-sans min-h-screen flex items-center justify-center p-0 sm:p-6 select-none overflow-hidden">
+
+  <!-- ===================================================================== -->
+  <!-- IPHONE 16 PRO FRAME (Full-screen on Mobile, Framed on Desktop)        -->
+  <!-- ===================================================================== -->
+  <div class="relative w-full sm:w-[393px] h-screen sm:h-[852px] bg-app-bg sm:rounded-[54px] sm:border-[10px] sm:border-[#1B202C] sm:shadow-[0_0_0_1px_#090B10,0_30px_90px_rgba(0,0,0,0.9)] flex flex-col justify-between overflow-hidden">
+
+    <!-- Subtle Ambient Top Glow -->
+    <div id="ambient-glow" class="absolute top-6 left-1/2 -translate-x-1/2 w-[280px] h-[280px] rounded-full bg-laser-orange/10 blur-[75px] pointer-events-none transition-colors duration-500"></div>
+
+    <!-- iOS Status Bar + Dynamic Island -->
+    <div class="relative z-20 pt-3 pb-1 px-7 flex items-center justify-between text-[12px] font-semibold tracking-tight text-white/80 shrink-0">
+      <span id="status-bar-time" class="tabular-nums">09:41</span>
+      <div class="hidden sm:flex items-center justify-center w-[108px] h-[28px] bg-black rounded-full border border-white/5"></div>
+      <div class="flex items-center gap-1.5 text-white/80">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 17h2v4H2v-4zm4-5h2v9H6v-9zm4-4h2v13h-2V8zm4-4h2v17h-2V4zm4 7h2v10h-2V11z"/></svg>
+        <div class="w-5 h-2.5 rounded-[3px] border border-white/40 p-0.5 flex items-center">
+          <div class="w-full h-full bg-white rounded-[1px]"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- PERSISTENT APP HEADER (Shown on Today & Stats, hidden on EMOM Hero) -->
+    <!-- =================================================================== -->
+    <header id="app-top-bar" class="hidden relative z-20 px-5 pt-2 pb-2.5 border-b border-white/[0.06] items-center justify-between shrink-0">
+      <h1 class="text-[17px] font-bold tracking-tight text-white">Wednesday, Oct 28</h1>
+      <div class="flex items-center gap-2.5">
+        <!-- Streak Badge -->
+        <div class="px-2.5 py-1 rounded-full bg-laser-orange/15 border border-laser-orange/30 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-laser-amber" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/>
+          </svg>
+          <span id="header-streak-count" class="text-xs font-extrabold text-laser-amber tabular-nums">0</span>
+        </div>
+        <!-- Settings Button -->
+        <button id="btn-settings" class="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] flex items-center justify-center text-slate-300 tap-btn" title="Einstellungen">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
-    <main id="main-content">
-        <!-- TODAY VIEW -->
-        <section id="view-today" class="view active" role="region" aria-label="Today View">
-            
-            <div class="card session-card" id="card-morning">
-                <div class="card-header">
-                    <h2>☀️ Morning Session</h2>
-                    <span class="status-badge incomplete" id="status-morning">Incomplete</span>
-                </div>
-                
-                <div class="sets-container" id="sets-morning">
-                    <!-- Set rows rendered dynamically by app.js -->
-                </div>
-                <div class="session-total">Morning Total: <span id="total-morning">0</span></div>
-            </div>
+    <!-- =================================================================== -->
+    <!-- MAIN SCROLLABLE VIEWPORT AREA                                       -->
+    <!-- =================================================================== -->
+    <main class="relative z-10 flex-1 flex flex-col overflow-y-auto no-scrollbar px-5 pt-3 pb-5">
 
-            <div class="card session-card" id="card-evening">
-                <div class="card-header">
-                    <h2>🌙 Evening Session</h2>
-                    <span class="status-badge incomplete" id="status-evening">Incomplete</span>
-                </div>
-                
-                <div class="sets-container" id="sets-evening">
-                    <!-- Set rows rendered dynamically by app.js -->
-                </div>
-                <div class="session-total">Evening Total: <span id="total-evening">0</span></div>
-            </div>
+      <!-- ================================================================= -->
+      <!-- TAB 1 (LEFT): TODAY — MORNING & EVENING PUSH-UP SESSIONS          -->
+      <!-- ================================================================= -->
+      <div id="tab-today" class="hidden flex-col space-y-4 pb-2">
 
-            <div class="daily-summary">
-                Daily Total: <span id="total-daily">0</span>
+        <!-- CARD 1: MORNING SESSION -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 shadow-lg">
+          <!-- Session Header -->
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-laser-amber/15 border border-laser-amber/30 flex items-center justify-center text-laser-amber">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2a1 1 0 100-2H2a1 1 0 100 2zm18 0h2a1 1 0 100-2h-2a1 1 0 100 2zM11 2v2a1 1 0 102 0V2a1 1 0 10-2 0zm0 18v2a1 1 0 102 0v-2a1 1 0 10-2 0zM5.99 4.58a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06zM7.05 18.36a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06z"/>
+                </svg>
+              </div>
+              <h2 class="text-[18px] font-extrabold tracking-tight text-white">Morning Session</h2>
             </div>
+            <span id="morning-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/5 border border-white/10 text-slate-400">Incomplete</span>
+          </div>
 
-            <button id="btn-save-today" class="btn-primary btn-large btn-full" aria-label="Save Today's Data">Save Data</button>
-            
+          <!-- Dynamic Morning Sets Container -->
+          <div id="morning-sets-list" class="space-y-2.5"></div>
+
+          <!-- + Satz hinzufügen Button -->
+          <button id="btn-add-morning-set" class="w-full mt-3 py-2.5 rounded-xl border border-dashed border-white/15 hover:border-laser-orange/50 text-xs font-bold text-slate-300 hover:text-laser-amber flex items-center justify-center gap-1.5 tap-btn">
+            <span>+ Satz hinzufügen</span>
+          </button>
+
+          <!-- Footer Total -->
+          <div class="mt-3 pt-2.5 border-t border-white/[0.05] flex items-center justify-end gap-1.5">
+            <span class="text-xs font-medium text-slate-400">Morning Total:</span>
+            <span id="morning-total-val" class="text-sm font-extrabold text-white tabular-nums">0</span>
+          </div>
         </section>
 
-        <!-- HISTORY VIEW -->
-        <section id="view-history" class="view" role="region" aria-label="History View">
-            <div class="view-header">
-                <h2>History</h2>
-                <div class="month-selector">
-                    <button id="btn-prev-month" aria-label="Previous Month">◀</button>
-                    <span id="current-month-display">September 2026</span>
-                    <button id="btn-next-month" aria-label="Next Month">▶</button>
-                </div>
+        <!-- CARD 2: EVENING SESSION -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 shadow-lg">
+          <!-- Session Header -->
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyber-cyan/15 border border-cyber-cyan/30 flex items-center justify-center text-cyber-cyan">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.1 22c-5.5 0-10-4.5-10-10 0-4.8 3.4-8.9 8-9.8.5-.1 1 .3 1.1.8.1.4-.1.8-.4 1.1-1.8 1.5-2.8 3.7-2.8 6.1 0 4.4 3.6 8 8 8 1.6 0 3.1-.5 4.4-1.3.4-.3.9-.2 1.2.1.3.3.4.8.2 1.2-1.8 2.4-4.6 3.8-7.7 3.8z"/>
+                </svg>
+              </div>
+              <h2 class="text-[18px] font-extrabold tracking-tight text-white">Evening Session</h2>
             </div>
+            <span id="evening-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/5 border border-white/10 text-slate-400">Incomplete</span>
+          </div>
 
-            <div class="calendar-container">
-                <div class="calendar-header">
-                    <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
-                </div>
-                <div class="calendar-grid" id="calendar-grid">
-                    <!-- Calendar cells populated by JS -->
-                </div>
-            </div>
+          <!-- Dynamic Evening Sets Container -->
+          <div id="evening-sets-list" class="space-y-2.5"></div>
 
-            <div class="card selected-day-card" id="card-selected-day">
-                <div class="card-header">
-                    <h3 id="selected-day-title">Select a day</h3>
-                    <button id="btn-edit-day" class="btn-secondary" aria-label="Edit Selected Day">Edit</button>
-                </div>
-                <div class="selected-day-details" id="selected-day-details">
-                    <div class="detail-row"><span>Morning:</span> <span id="detail-morning">0</span></div>
-                    <div class="detail-row"><span>Evening:</span> <span id="detail-evening">0</span></div>
-                    <div class="detail-row"><span>EMOM:</span> <span id="detail-emom">—</span></div>
-                    <div class="detail-row total"><span>Total:</span> <span id="detail-total">0</span></div>
-                </div>
-                
-                <!-- Retroactive Edit Mode -->
-                <div class="retro-edit-container hidden" id="retro-edit-container">
-                    <!-- Morning & Evening edit rows rendered dynamically by app.js -->
-                    <div id="retro-edit-morning"></div>
-                    <div id="retro-edit-evening"></div>
+          <!-- + Satz hinzufügen Button -->
+          <button id="btn-add-evening-set" class="w-full mt-3 py-2.5 rounded-xl border border-dashed border-white/15 hover:border-cyber-cyan/50 text-xs font-bold text-slate-300 hover:text-cyber-cyan flex items-center justify-center gap-1.5 tap-btn">
+            <span>+ Satz hinzufügen</span>
+          </button>
 
-                    <div class="edit-actions">
-                        <button id="btn-cancel-edit" class="btn-secondary">Cancel</button>
-                        <button id="btn-save-edit" class="btn-primary">Save Changes</button>
-                    </div>
-                </div>
-            </div>
+          <!-- Footer Total -->
+          <div class="mt-3 pt-2.5 border-t border-white/[0.05] flex items-center justify-end gap-1.5">
+            <span class="text-xs font-medium text-slate-400">Evening Total:</span>
+            <span id="evening-total-val" class="text-sm font-extrabold text-white tabular-nums">0</span>
+          </div>
         </section>
 
-        <!-- STATS VIEW -->
-        <section id="view-stats" class="view" role="region" aria-label="Stats View">
-            <div class="view-header">
-                <h2>Analytics</h2>
-                <div class="time-range-selector">
-                    <button class="range-btn active" data-range="7">7D</button>
-                    <button class="range-btn" data-range="30">30D</button>
-                    <button class="range-btn" data-range="90">90D</button>
-                    <button class="range-btn" data-range="all">All</button>
-                </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2 (CENTER): EMOM — 1:1 HERO ICON MORPH TIMER                  -->
+      <!-- ================================================================= -->
+      <div id="tab-emom" class="flex-1 flex flex-col justify-between">
+
+        <!-- HERO: FLOATING SVG ICON / 60s TIMER -->
+        <div class="flex-1 flex items-center justify-center my-auto">
+          <div id="svg-stage" class="relative w-[290px] h-[290px] flex items-center justify-center cursor-pointer tap-btn">
+            <svg id="emom-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-full h-full overflow-visible" fill="none">
+              <defs>
+                <linearGradient id="accent-grad" x1="80" y1="80" x2="400" y2="380" gradientUnits="userSpaceOnUse">
+                  <stop id="grad-stop-1" offset="0%" stop-color="#FF8800"/>
+                  <stop id="grad-stop-2" offset="45%" stop-color="#FF4D00"/>
+                  <stop id="grad-stop-3" offset="100%" stop-color="#FF2A00"/>
+                </linearGradient>
+                <filter id="glow-a" filterUnits="userSpaceOnUse" x="-60" y="-60" width="632" height="632">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- 1. Dim 60-Second Background Ring Track -->
+              <circle cx="256" cy="256" r="176" stroke="#1C2230" stroke-width="28" stroke-linecap="round"/>
+
+              <!-- 2. Subtle 15-Second Quadrant Tick Marks -->
+              <g stroke="#2B3448" stroke-width="6" stroke-linecap="round">
+                <line x1="256" y1="42" x2="256" y2="54"/>
+                <line x1="470" y1="256" x2="458" y2="256"/>
+                <line x1="256" y1="470" x2="256" y2="458"/>
+                <line x1="42" y1="256" x2="54" y2="256"/>
+              </g>
+
+              <!-- 3. Subtle Horizontal Floor Line -->
+              <line id="floor-line" x1="156" y1="344" x2="360" y2="344" stroke="#252C3D" stroke-width="10" stroke-linecap="round"/>
+
+              <!-- 4. UNIFIED GLOWING GROUP -->
+              <g id="glow-group" filter="url(#glow-a)">
+                <!-- Active Outer Ring -->
+                <path id="emom-ring"
+                      d="M 256 80 A 176 176 0 1 1 256 432 A 176 176 0 1 1 256 80"
+                      stroke="url(#accent-grad)"
+                      stroke-width="28"
+                      stroke-linecap="round"
+                      stroke-dasharray="737.23 1105.84"
+                      stroke-dashoffset="0"/>
+
+                <!-- 32° Plank Body + Vertical Arm -->
+                <path id="plank-path"
+                      d="M 103.58 344 L 304 220 L 304 344"
+                      stroke="url(#accent-grad)"
+                      stroke-width="28"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-dasharray="359.68 359.68"
+                      stroke-dashoffset="0"/>
+
+                <!-- Detached Geometric Head Node -->
+                <circle id="head-node" cx="352" cy="190" r="22" fill="url(#accent-grad)"/>
+              </g>
+
+              <!-- 5. 12 O'Clock Origin Dot -->
+              <circle cx="256" cy="80" r="6" fill="#FFFFFF"/>
+
+              <!-- 6. MINIMALIST CENTER SECONDS NUMBER -->
+              <g id="center-seconds-group" opacity="0" transform="scale(0.88)" style="transform-origin: 256px 256px; pointer-events: none;">
+                <text id="center-seconds-text"
+                      x="256"
+                      y="304"
+                      text-anchor="middle"
+                      fill="#FFFFFF"
+                      font-family="Inter, -apple-system, sans-serif"
+                      font-weight="800"
+                      font-size="136"
+                      class="tabular-nums"
+                      letter-spacing="-5">60</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- STATE A: ULTRA-CLEAN SETUP CONTROLS (3 Rows + Start)            -->
+        <!-- =============================================================== -->
+        <div id="setup-controls" class="space-y-2.5">
+
+          <!-- Row 1: Push-Ups / Min -->
+          <div class="h-[60px] px-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between">
+            <span class="text-sm font-semibold text-slate-200">Push-Ups / Min</span>
+            <div class="flex items-center gap-3">
+              <button id="reps-minus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">−</button>
+              <span id="reps-display" class="w-10 text-center font-bold text-lg text-white tabular-nums">15</span>
+              <button id="reps-plus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">+</button>
+            </div>
+          </div>
+
+          <!-- Row 2: Dauer -->
+          <div class="h-[60px] px-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <span class="text-sm font-semibold text-slate-200">Dauer</span>
+              <button id="btn-endless" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-white/10 bg-white/5 text-slate-400 tap-btn" title="Endlos-Modus umschalten">∞</button>
+            </div>
+            <div class="flex items-center gap-3">
+              <button id="mins-minus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">−</button>
+              <span id="mins-display" class="w-16 text-center font-bold text-base text-white tabular-nums">10 Min</span>
+              <button id="mins-plus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">+</button>
+            </div>
+          </div>
+
+          <!-- Row 3: Rest-Set -->
+          <div class="h-[60px] px-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between">
+            <span class="text-sm font-semibold text-slate-200">Rest-Set</span>
+            <div class="flex items-center gap-3">
+              <button id="rest-minus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">−</button>
+              <span id="rest-display" class="w-24 text-center font-bold text-sm text-slate-300 tabular-nums">Aus</span>
+              <button id="rest-plus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">+</button>
+            </div>
+          </div>
+
+          <!-- Primary START Button -->
+          <button id="btn-start" class="w-full h-[58px] mt-1 rounded-2xl bg-gradient-to-r from-laser-orange to-laser-amber text-white font-extrabold text-base tracking-wide shadow-[0_10px_28px_rgba(255,77,0,0.32)] flex items-center justify-center tap-btn">
+            START
+          </button>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- STATE B: MINIMALIST ACTIVE WORKOUT CONTROLS                     -->
+        <!-- =============================================================== -->
+        <div id="workout-controls" class="hidden space-y-2.5">
+
+          <!-- Clean Status Row -->
+          <div class="h-[62px] px-5 rounded-2xl bg-app-card border border-app-border flex items-center justify-between">
+            <div>
+              <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Aktuelle Runde</span>
+              <span id="live-round-text" class="font-bold text-base text-white tabular-nums">Runde 1 / 10</span>
+            </div>
+            <div class="text-right">
+              <span id="live-phase-label" class="text-[11px] font-semibold uppercase tracking-wider text-laser-amber block">Ziel</span>
+              <span id="live-target-text" class="font-extrabold text-base text-white tabular-nums">15 Push-Ups</span>
+            </div>
+          </div>
+
+          <!-- Satz fertig Button -->
+          <button id="btn-set-done" class="w-full h-[54px] rounded-2xl bg-cyber-cyan/15 border border-cyber-cyan/40 text-cyber-cyan font-bold text-sm tracking-wide flex items-center justify-center gap-2 tap-btn">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <span id="set-done-text">Satz fertig</span>
+          </button>
+
+          <!-- Beenden Button -->
+          <button id="btn-stop" class="w-full h-[50px] rounded-2xl bg-app-card hover:bg-rose-500/10 border border-app-border hover:border-rose-500/30 text-sm font-bold text-rose-400 flex items-center justify-center tap-btn">
+            Beenden
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3 (RIGHT): STATS — KPIs + GITHUB HEATMAP & DAY EDITOR + CHART -->
+      <!-- ================================================================= -->
+      <div id="tab-stats" class="hidden flex-col space-y-4 pb-2">
+
+        <!-- Section Header + Range Filter -->
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-extrabold tracking-tight text-white">Analytics</h2>
+          <div class="p-1 rounded-xl bg-app-card border border-app-border flex items-center gap-0.5 text-[11px] font-bold">
+            <button data-range="7" class="range-btn px-2.5 py-1 rounded-lg bg-white/10 text-white tap-btn">7D</button>
+            <button data-range="30" class="range-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white tap-btn">30D</button>
+            <button data-range="90" class="range-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white tap-btn">90D</button>
+            <button data-range="all" class="range-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white tap-btn">All</button>
+          </div>
+        </div>
+
+        <!-- 2x2 KPI Grid -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="p-3.5 rounded-2xl bg-app-card border border-app-border flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current Streak</span>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="text-lg">🔥</span>
+              <span id="kpi-current-streak" class="text-2xl font-extrabold text-white tabular-nums">0</span>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-2xl bg-app-card border border-app-border flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Longest Streak</span>
+            <div id="kpi-longest-streak" class="text-2xl font-extrabold text-white mt-1 tabular-nums">0</div>
+          </div>
+
+          <div class="p-3.5 rounded-2xl bg-app-card border border-app-border flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Reps</span>
+            <div id="kpi-total-reps" class="text-2xl font-extrabold text-laser-amber mt-1 tabular-nums">0</div>
+          </div>
+
+          <div class="p-3.5 rounded-2xl bg-app-card border border-app-border flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Daily Average</span>
+            <div id="kpi-daily-avg" class="text-2xl font-extrabold text-cyber-cyan mt-1 tabular-nums">0.0</div>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- GITHUB-LIKE HEATMAP + INTERACTIVE PAST-DAY EDITOR CARD          -->
+        <!-- =============================================================== -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 space-y-3.5">
+          <!-- Heatmap Header -->
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white">Activity Heatmap</h3>
+              <p class="text-[11px] text-slate-400">Tippe auf einen Tag zum Prüfen & Bearbeiten</p>
+            </div>
+            <!-- Intensity Legend -->
+            <div class="flex items-center gap-1 text-[10px] text-slate-400">
+              <span>Less</span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-0 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-1 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-2 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-3 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-4 inline-block"></span>
+              <span>More</span>
+            </div>
+          </div>
+
+          <!-- Month Labels above Grid -->
+          <div id="heatmap-month-labels" class="flex justify-between text-[10px] font-semibold text-slate-400 px-5"></div>
+
+          <!-- GitHub 12-Week x 7-Day Matrix -->
+          <div class="flex items-center gap-1.5">
+            <!-- Weekday Labels -->
+            <div class="flex flex-col justify-between h-[116px] text-[9px] font-semibold text-slate-500 py-0.5">
+              <span>M</span>
+              <span>W</span>
+              <span>F</span>
+              <span>S</span>
+            </div>
+            <!-- 12 Columns (Weeks) x 7 Rows (Days) -->
+            <div id="heatmap-grid" class="flex-1 grid grid-cols-12 gap-1.5"></div>
+          </div>
+
+          <!-- SELECTED DAY INSPECTOR & INLINE EDITOR -->
+          <div class="pt-3 border-t border-white/[0.07] space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-laser-orange"></span>
+                <h4 id="selected-day-title" class="text-sm font-extrabold text-white">Select a day</h4>
+              </div>
+              <button id="btn-toggle-day-edit" class="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[11px] font-bold text-slate-200 tap-btn">
+                Edit
+              </button>
             </div>
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Current Streak</div>
-                    <div class="stat-value" id="stat-current-streak">🔥 0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Longest Streak</div>
-                    <div class="stat-value" id="stat-longest-streak">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Total Reps</div>
-                    <div class="stat-value" id="stat-total-reps">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Daily Average</div>
-                    <div class="stat-value" id="stat-daily-avg">0.0</div>
-                </div>
+            <!-- Read-Only Summary View -->
+            <div id="day-readonly-view" class="space-y-1.5 text-xs pt-0.5">
+              <div class="flex items-center justify-between text-slate-300">
+                <span>Morning:</span>
+                <span id="inspector-morning" class="font-bold text-white tabular-nums">— reps</span>
+              </div>
+              <div class="flex items-center justify-between text-slate-300">
+                <span>Evening:</span>
+                <span id="inspector-evening" class="font-bold text-white tabular-nums">— reps</span>
+              </div>
+              <div class="flex items-center justify-between text-slate-300">
+                <span>EMOM:</span>
+                <span id="inspector-emom" class="font-bold text-cyber-cyan tabular-nums">—</span>
+              </div>
+              <div class="pt-1.5 border-t border-white/[0.06] flex items-center justify-between text-sm font-extrabold">
+                <span class="text-white">Total:</span>
+                <span id="inspector-total" class="text-laser-amber tabular-nums">— reps</span>
+              </div>
             </div>
 
-            <div class="card chart-card">
-                <h3>Daily Reps</h3>
-                <div class="chart-container">
-                    <canvas id="chart-daily"></canvas>
+            <!-- Interactive Edit Mode -->
+            <div id="day-edit-view" class="hidden space-y-2 pt-1">
+              <!-- Edit Morning -->
+              <div class="flex items-center justify-between bg-app-input px-3 py-2 rounded-xl border border-white/[0.06]">
+                <span class="text-xs font-semibold text-slate-300">Morning</span>
+                <div class="flex items-center gap-1.5">
+                  <button data-field="morning" data-delta="-5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-5</button>
+                  <button data-field="morning" data-delta="-1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-1</button>
+                  <span id="edit-val-morning" class="w-10 text-center text-xs font-extrabold text-white tabular-nums">0</span>
+                  <button data-field="morning" data-delta="1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+1</button>
+                  <button data-field="morning" data-delta="5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+5</button>
                 </div>
-            </div>
+              </div>
 
-            <div class="card chart-card">
-                <h3>Morning vs Evening</h3>
-                <div class="chart-container">
-                    <canvas id="chart-comparison"></canvas>
+              <!-- Edit Evening -->
+              <div class="flex items-center justify-between bg-app-input px-3 py-2 rounded-xl border border-white/[0.06]">
+                <span class="text-xs font-semibold text-slate-300">Evening</span>
+                <div class="flex items-center gap-1.5">
+                  <button data-field="evening" data-delta="-5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-5</button>
+                  <button data-field="evening" data-delta="-1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-1</button>
+                  <span id="edit-val-evening" class="w-10 text-center text-xs font-extrabold text-white tabular-nums">0</span>
+                  <button data-field="evening" data-delta="1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+1</button>
+                  <button data-field="evening" data-delta="5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+5</button>
                 </div>
-            </div>
+              </div>
 
-            <div class="card chart-card">
-                <h3>7-Day Rolling Avg</h3>
-                <div class="chart-container">
-                    <canvas id="chart-rolling"></canvas>
+              <!-- Edit EMOM -->
+              <div class="flex items-center justify-between bg-app-input px-3 py-2 rounded-xl border border-white/[0.06]">
+                <span class="text-xs font-semibold text-cyber-cyan">EMOM</span>
+                <div class="flex items-center gap-1.5">
+                  <button data-field="emom" data-delta="-5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-5</button>
+                  <button data-field="emom" data-delta="-1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-1</button>
+                  <span id="edit-val-emom" class="w-10 text-center text-xs font-extrabold text-cyber-cyan tabular-nums">0</span>
+                  <button data-field="emom" data-delta="1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+1</button>
+                  <button data-field="emom" data-delta="5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+5</button>
                 </div>
+              </div>
             </div>
-
-            <div class="card records-card">
-                <h3>Personal Records</h3>
-                <div class="record-row">
-                    <span>Best Single Set</span>
-                    <span id="record-set" class="record-value">0</span>
-                </div>
-                <div class="record-row">
-                    <span>Best Session</span>
-                    <span id="record-session" class="record-value">0</span>
-                </div>
-                <div class="record-row">
-                    <span>Best Day</span>
-                    <span id="record-day" class="record-value">0</span>
-                </div>
-                <div class="record-row">
-                    <span>Bestes EMOM</span>
-                    <span id="record-emom" class="record-value">—</span>
-                </div>
-            </div>
+          </div>
         </section>
 
-        <!-- EMOM VIEW -->
-        <section id="view-emom" class="view" role="region" aria-label="EMOM Training">
-
-            <!-- Setup panel -->
-            <div id="emom-setup">
-                <div class="view-header">
-                    <h2>⏱️ EMOM</h2>
-                </div>
-                <p class="emom-subtitle">Every Minute On the Minute</p>
-
-                <div class="card emom-config-card">
-                    <div class="emom-config-label">Wiederholungen pro Minute</div>
-                    <div class="emom-presets">
-                        <button class="emom-preset-btn" data-reps="5" aria-label="5 Reps preset">5</button>
-                        <button class="emom-preset-btn active" data-reps="10" aria-label="10 Reps preset">10</button>
-                        <button class="emom-preset-btn" data-reps="15" aria-label="15 Reps preset">15</button>
-                        <button class="emom-preset-btn" data-reps="20" aria-label="20 Reps preset">20</button>
-                    </div>
-                    <input type="number" id="emom-target-reps" class="rep-input emom-reps-input"
-                           inputmode="numeric" pattern="[0-9]*" value="10" min="1" max="999"
-                           aria-label="Ziel-Wiederholungen pro Minute">
-                </div>
-
-                <button id="btn-emom-start" class="btn-primary btn-large btn-full" aria-label="EMOM starten">
-                    🚀 EMOM starten
-                </button>
+        <!-- =============================================================== -->
+        <!-- DAILY REPS GRAPH CARD                                           -->
+        <!-- =============================================================== -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-extrabold tracking-tight text-white">Daily Reps</h3>
+            <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-300">
+              <span class="w-7 h-3 rounded-[3px] border-2 border-laser-orange bg-laser-orange/20 inline-block"></span>
+              <span>Total Reps</span>
             </div>
-
-            <!-- Active workout panel -->
-            <div id="emom-active" class="hidden">
-
-                <div class="emom-round-header">
-                    Runde <span id="emom-round-num">1</span>
-                </div>
-
-                <!-- SVG Circular Timer -->
-                <div class="emom-timer-wrap">
-                    <svg class="emom-ring-svg" viewBox="0 0 120 120" aria-hidden="true">
-                        <circle class="emom-ring-track" cx="60" cy="60" r="52"/>
-                        <circle class="emom-ring-fill" id="emom-ring-fill" cx="60" cy="60" r="52"/>
-                    </svg>
-                    <div class="emom-timer-center">
-                        <span id="emom-seconds" class="emom-seconds-num">60</span>
-                        <span class="emom-seconds-unit">s</span>
-                    </div>
-                </div>
-
-                <div class="emom-info-row">
-                    Ziel: <strong id="emom-target-display">10</strong> Reps / Runde
-                </div>
-                <div class="emom-info-row emom-progress-row">
-                    <span id="emom-completed-rounds">0</span> Runden &nbsp;·&nbsp;
-                    <span id="emom-completed-reps">0</span> Reps
-                </div>
-
-                <button id="btn-emom-done" class="btn-primary btn-large btn-full emom-btn-done"
-                        aria-label="Runde als geschafft markieren">
-                    ✅ Runde geschafft!
-                </button>
-                <button id="btn-emom-abort" class="btn-secondary btn-full emom-btn-abort"
-                        aria-label="EMOM Workout beenden">
-                    ⏹ Workout beenden
-                </button>
-
-            </div>
+          </div>
+          <div class="relative w-full pt-1">
+            <svg id="daily-reps-svg" viewBox="0 0 320 164" class="w-full h-[164px] overflow-visible" fill="none">
+              <defs>
+                <linearGradient id="daily-area-grad" x1="0" y1="12" x2="0" y2="132" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#FF5500" stop-opacity="0.30"/>
+                  <stop offset="100%" stop-color="#FF5500" stop-opacity="0.0"/>
+                </linearGradient>
+                <linearGradient id="daily-line-grad" x1="32" y1="0" x2="306" y2="0" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#FF4D00"/>
+                  <stop offset="50%" stop-color="#FF6A00"/>
+                  <stop offset="100%" stop-color="#FF8800"/>
+                </linearGradient>
+              </defs>
+              <g id="daily-grid-layer"></g>
+              <path id="daily-area-path" d="" fill="url(#daily-area-grad)"/>
+              <path id="daily-line-path" d="" stroke="url(#daily-line-grad)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+              <g id="daily-dots-layer"></g>
+              <g id="daily-xlabels-layer"></g>
+            </svg>
+          </div>
         </section>
+
+        <!-- =============================================================== -->
+        <!-- 7-DAY ROLLING AVG GRAPH CARD                                    -->
+        <!-- =============================================================== -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-extrabold tracking-tight text-white">7-Day Rolling Avg</h3>
+            <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-300">
+              <span class="w-7 h-3 rounded-[3px] border-2 border-cyber-cyan bg-cyber-cyan/20 inline-block"></span>
+              <span>7-Day Rolling Avg</span>
+            </div>
+          </div>
+          <div class="relative w-full pt-1">
+            <svg id="rolling-avg-svg" viewBox="0 0 320 164" class="w-full h-[164px] overflow-visible" fill="none">
+              <defs>
+                <linearGradient id="rolling-area-grad" x1="0" y1="12" x2="0" y2="132" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.28"/>
+                  <stop offset="100%" stop-color="#00F0FF" stop-opacity="0.0"/>
+                </linearGradient>
+                <linearGradient id="rolling-line-grad" x1="34" y1="0" x2="308" y2="0" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#0088FF"/>
+                  <stop offset="50%" stop-color="#00F0FF"/>
+                  <stop offset="100%" stop-color="#00F0FF"/>
+                </linearGradient>
+              </defs>
+              <g id="rolling-grid-layer"></g>
+              <path id="rolling-area-path" d="" fill="url(#rolling-area-grad)"/>
+              <path id="rolling-line-path" d="" stroke="url(#rolling-line-grad)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+              <g id="rolling-dots-layer"></g>
+              <g id="rolling-xlabels-layer"></g>
+            </svg>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- PERSONAL RECORDS CARD                                           -->
+        <!-- =============================================================== -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4">
+          <div class="flex items-center justify-between pb-2 mb-1">
+            <h3 class="text-base font-extrabold tracking-tight text-white">Personal Records</h3>
+          </div>
+          <div class="divide-y divide-white/[0.06] text-sm">
+            <div class="py-3 flex items-center justify-between">
+              <span class="font-medium text-slate-200">Best Single Set</span>
+              <span id="pr-best-single-set" class="font-extrabold text-base text-cyber-cyan tabular-nums">—</span>
+            </div>
+            <div class="py-3 flex items-center justify-between">
+              <span class="font-medium text-slate-200">Best Session</span>
+              <span id="pr-best-session" class="font-extrabold text-base text-cyber-cyan tabular-nums">—</span>
+            </div>
+            <div class="py-3 flex items-center justify-between">
+              <span class="font-medium text-slate-200">Best Day</span>
+              <span id="pr-best-day" class="font-extrabold text-base text-laser-amber tabular-nums">—</span>
+            </div>
+            <div class="pt-3 pb-0.5 flex items-center justify-between">
+              <span class="font-medium text-slate-200">Bestes EMOM</span>
+              <span id="pr-best-emom" class="font-extrabold text-base text-cyber-cyan tabular-nums">—</span>
+            </div>
+          </div>
+        </section>
+
+      </div>
 
     </main>
 
-    <!-- BOTTOM TAB BAR -->
-    <nav class="bottom-tab-bar" aria-label="Main Navigation">
-        <button class="tab-btn active" data-target="view-today" aria-label="Today Tab">
-            <span class="tab-icon">🏠</span>
-            <span class="tab-label">Today</span>
-        </button>
-        <button class="tab-btn" data-target="view-history" aria-label="History Tab">
-            <span class="tab-icon">📅</span>
-            <span class="tab-label">History</span>
-        </button>
-        <button class="tab-btn" data-target="view-emom" aria-label="EMOM Tab">
-            <span class="tab-icon">⏱️</span>
-            <span class="tab-label">EMOM</span>
-        </button>
-        <button class="tab-btn" data-target="view-stats" aria-label="Stats Tab">
-            <span class="tab-icon">📊</span>
-            <span class="tab-label">Stats</span>
-        </button>
+    <!-- =================================================================== -->
+    <!-- BOTTOM 3-TAB iOS NAVIGATION BAR (Today | EMOM | Stats)              -->
+    <!-- =================================================================== -->
+    <nav class="relative z-20 bg-app-bg/95 backdrop-blur-md border-t border-white/[0.06] px-6 pt-2.5 pb-6 flex items-center justify-around shrink-0">
+
+      <!-- Tab 1 (Left): Today Sessions -->
+      <button id="nav-today" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 tap-btn">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+        <span class="text-[10px] font-semibold">Today</span>
+      </button>
+
+      <!-- Tab 2 (Center): EMOM -->
+      <button id="nav-emom" class="flex flex-col items-center gap-1 text-laser-orange tap-btn">
+        <svg class="w-5 h-5" viewBox="0 0 512 512" fill="none">
+          <circle cx="256" cy="256" r="176" stroke="currentColor" stroke-opacity="0.25" stroke-width="48"/>
+          <path d="M 256 80 A 176 176 0 1 1 103.58 344 L 304 220 L 304 344" stroke="currentColor" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="352" cy="190" r="36" fill="currentColor"/>
+        </svg>
+        <span class="text-[10px] font-bold">EMOM</span>
+      </button>
+
+      <!-- Tab 3 (Right): Stats -->
+      <button id="nav-stats" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 tap-btn">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <span class="text-[10px] font-semibold">Stats</span>
+      </button>
+
+      <!-- iOS Home Indicator -->
+      <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 rounded-full bg-white/20 pointer-events-none"></div>
     </nav>
 
-    <!-- TOAST CONTAINER -->
-    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+  </div>
 
-    <!-- MODAL OVERLAY -->
-    <div id="modal-overlay" class="modal-overlay hidden" aria-modal="true" role="dialog">
-        <div class="modal-content" id="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-title">Settings</h3>
-                <button id="btn-close-modal" class="icon-button" aria-label="Close Modal">✕</button>
-            </div>
-            <div class="modal-body" id="modal-body">
-                <!-- Settings Content -->
-                <div class="settings-list">
-                    <button id="btn-export-data" class="settings-btn">Export Data (JSON)</button>
-                    <label class="settings-btn file-upload-btn">
-                        Import Data (JSON)
-                        <input type="file" id="input-import-data" accept=".json" style="display:none;">
-                    </label>
-                    <button id="btn-clear-data" class="settings-btn danger-text">Clear All Data</button>
-                </div>
-                <div class="about-info">
-                    <p>Push-Up Discipline PWA v1.0</p>
-                    <p>Stay hard.</p>
-                </div>
-            </div>
-        </div>
+  <!-- Toast Container -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- Settings Modal -->
+  <div id="modal-overlay" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center" aria-modal="true" role="dialog">
+    <div id="modal-content" class="w-full sm:w-[360px] bg-app-card rounded-t-[32px] sm:rounded-[28px] border border-app-border p-6 pb-10 sm:pb-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-5">
+        <h3 id="modal-title" class="text-lg font-extrabold text-white">Settings</h3>
+        <button id="btn-close-modal" class="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 flex items-center justify-center text-slate-300 text-sm font-bold tap-btn" aria-label="Close">✕</button>
+      </div>
+      <div id="modal-body" class="space-y-3">
+        <button id="btn-export-data" class="w-full h-12 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-sm font-semibold text-white flex items-center justify-center tap-btn">
+          Export Data (JSON)
+        </button>
+        <label class="w-full h-12 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-sm font-semibold text-white flex items-center justify-center tap-btn cursor-pointer">
+          Import Data (JSON)
+          <input type="file" id="input-import-data" accept=".json" class="hidden">
+        </label>
+        <button id="btn-clear-data" class="w-full h-12 rounded-2xl bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/25 text-sm font-semibold text-rose-400 flex items-center justify-center tap-btn">
+          Clear All Data
+        </button>
+        <p class="text-center text-[11px] text-slate-500 pt-2">Push-Up Discipline PWA · Stay hard.</p>
+      </div>
     </div>
+  </div>
 
-    <!-- SCRIPTS -->
-    <script src="vendor/chart.umd.min.js"></script>
-    <script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

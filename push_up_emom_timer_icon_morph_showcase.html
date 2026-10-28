@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PUSH • EMOM & Session Tracker — Unified iOS Design</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            app: {
+              bg: '#07090E',
+              card: '#11151F',
+              cardHover: '#161B28',
+              input: '#0B0E16',
+              border: '#1E2536',
+              muted: '#64748B'
+            },
+            laser: {
+              orange: '#FF4D00',
+              amber: '#FF8800',
+              red: '#FF2A00'
+            },
+            cyber: {
+              cyan: '#00F0FF',
+              blue: '#0088FF'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "zero" 1;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .tap-btn {
+      transition: transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    }
+    .tap-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+    /* Custom Heatmap Levels */
+    .heat-0 { background-color: #151A26; border: 1px solid rgba(255,255,255,0.03); }
+    .heat-1 { background-color: #4D2212; border: 1px solid rgba(255,77,0,0.2); }
+    .heat-2 { background-color: #8F320B; border: 1px solid rgba(255,77,0,0.35); }
+    .heat-3 { background-color: #CC4202; border: 1px solid rgba(255,110,0,0.5); }
+    .heat-4 { background-color: #FF5500; border: 1px solid #FF9944; box-shadow: 0 0 8px rgba(255, 77, 0, 0.45); }
+  </style>
+</head>
+<body class="bg-[#040508] text-white font-sans min-h-screen flex items-center justify-center p-0 sm:p-6 select-none overflow-hidden">
+
+  <!-- ===================================================================== -->
+  <!-- IPHONE 16 PRO FRAME (Full-screen on Mobile, Framed on Desktop)        -->
+  <!-- ===================================================================== -->
+  <div class="relative w-full sm:w-[393px] h-screen sm:h-[852px] bg-app-bg sm:rounded-[54px] sm:border-[10px] sm:border-[#1B202C] sm:shadow-[0_0_0_1px_#090B10,0_30px_90px_rgba(0,0,0,0.9)] flex flex-col justify-between overflow-hidden">
+
+    <!-- Subtle Ambient Top Glow -->
+    <div id="ambient-glow" class="absolute top-6 left-1/2 -translate-x-1/2 w-[280px] h-[280px] rounded-full bg-laser-orange/10 blur-[75px] pointer-events-none transition-colors duration-500"></div>
+
+    <!-- iOS Status Bar + Dynamic Island -->
+    <div class="relative z-20 pt-3 pb-1 px-7 flex items-center justify-between text-[12px] font-semibold tracking-tight text-white/80 shrink-0">
+      <span class="tabular-nums">09:41</span>
+      <div class="hidden sm:flex items-center justify-center w-[108px] h-[28px] bg-black rounded-full border border-white/5"></div>
+      <div class="flex items-center gap-1.5 text-white/80">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 17h2v4H2v-4zm4-5h2v9H6v-9zm4-4h2v13h-2V8zm4-4h2v17h-2V4zm4 7h2v10h-2V11z"/></svg>
+        <div class="w-5 h-2.5 rounded-[3px] border border-white/40 p-0.5 flex items-center">
+          <div class="w-full h-full bg-white rounded-[1px]"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- PERSISTENT APP HEADER (Shown on Today & Stats, hidden on EMOM Hero) -->
+    <!-- =================================================================== -->
+    <header id="app-top-bar" class="hidden relative z-20 px-5 pt-2 pb-2.5 border-b border-white/[0.06] items-center justify-between shrink-0">
+      <h1 class="text-[17px] font-bold tracking-tight text-white">Wednesday, Oct 28</h1>
+      <div class="flex items-center gap-2.5">
+        <!-- Streak Badge -->
+        <div class="px-2.5 py-1 rounded-full bg-laser-orange/15 border border-laser-orange/30 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-laser-amber" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/>
+          </svg>
+          <span id="header-streak-count" class="text-xs font-extrabold text-laser-amber tabular-nums">14</span>
+        </div>
+        <!-- Settings Button -->
+        <button id="btn-settings" class="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] flex items-center justify-center text-slate-300 tap-btn" title="Einstellungen">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- =================================================================== -->
+    <!-- MAIN SCROLLABLE VIEWPORT AREA                                       -->
+    <!-- =================================================================== -->
+    <main class="relative z-10 flex-1 flex flex-col overflow-y-auto no-scrollbar px-5 pt-3 pb-5">
+
+      <!-- ================================================================= -->
+      <!-- TAB 1 (LEFT): TODAY — MORNING & EVENING PUSH-UP SESSIONS          -->
+      <!-- ================================================================= -->
+      <div id="tab-today" class="hidden flex-col space-y-4 pb-2">
+
+        <!-- CARD 1: MORNING SESSION -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 shadow-lg">
+          <!-- Session Header -->
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-laser-amber/15 border border-laser-amber/30 flex items-center justify-center text-laser-amber">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2a1 1 0 100-2H2a1 1 0 100 2zm18 0h2a1 1 0 100-2h-2a1 1 0 100 2zM11 2v2a1 1 0 102 0V2a1 1 0 10-2 0zm0 18v2a1 1 0 102 0v-2a1 1 0 10-2 0zM5.99 4.58a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06zM7.05 18.36a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06z"/>
+                </svg>
+              </div>
+              <h2 class="text-[18px] font-extrabold tracking-tight text-white">Morning Session</h2>
+            </div>
+            <span id="morning-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide border">Complete</span>
+          </div>
+
+          <!-- Dynamic Morning Sets Container -->
+          <div id="morning-sets-list" class="space-y-2.5"></div>
+
+          <!-- + Satz hinzufügen Button -->
+          <button id="btn-add-morning-set" class="w-full mt-3 py-2.5 rounded-xl border border-dashed border-white/15 hover:border-laser-orange/50 text-xs font-bold text-slate-300 hover:text-laser-amber flex items-center justify-center gap-1.5 tap-btn">
+            <span>+ Satz hinzufügen</span>
+          </button>
+
+          <!-- Footer Total -->
+          <div class="mt-3 pt-2.5 border-t border-white/[0.05] flex items-center justify-end gap-1.5">
+            <span class="text-xs font-medium text-slate-400">Morning Total:</span>
+            <span id="morning-total-val" class="text-sm font-extrabold text-white tabular-nums">20</span>
+          </div>
+        </section>
+
+        <!-- CARD 2: EVENING SESSION -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 shadow-lg">
+          <!-- Session Header -->
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyber-cyan/15 border border-cyber-cyan/30 flex items-center justify-center text-cyber-cyan">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.1 22c-5.5 0-10-4.5-10-10 0-4.8 3.4-8.9 8-9.8.5-.1 1 .3 1.1.8.1.4-.1.8-.4 1.1-1.8 1.5-2.8 3.7-2.8 6.1 0 4.4 3.6 8 8 8 1.6 0 3.1-.5 4.4-1.3.4-.3.9-.2 1.2.1.3.3.4.8.2 1.2-1.8 2.4-4.6 3.8-7.7 3.8z"/>
+                </svg>
+              </div>
+              <h2 class="text-[18px] font-extrabold tracking-tight text-white">Evening Session</h2>
+            </div>
+            <span id="evening-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide border">Complete</span>
+          </div>
+
+          <!-- Dynamic Evening Sets Container -->
+          <div id="evening-sets-list" class="space-y-2.5"></div>
+
+          <!-- + Satz hinzufügen Button -->
+          <button id="btn-add-evening-set" class="w-full mt-3 py-2.5 rounded-xl border border-dashed border-white/15 hover:border-cyber-cyan/50 text-xs font-bold text-slate-300 hover:text-cyber-cyan flex items-center justify-center gap-1.5 tap-btn">
+            <span>+ Satz hinzufügen</span>
+          </button>
+
+          <!-- Footer Total -->
+          <div class="mt-3 pt-2.5 border-t border-white/[0.05] flex items-center justify-end gap-1.5">
+            <span class="text-xs font-medium text-slate-400">Evening Total:</span>
+            <span id="evening-total-val" class="text-sm font-extrabold text-white tabular-nums">30</span>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2 (CENTER): EMOM — 1:1 HERO ICON MORPH TIMER                  -->
+      <!-- ================================================================= -->
+      <div id="tab-emom" class="flex-1 flex flex-col justify-between">
+
+        <!-- HERO: FLOATING SVG ICON / 60s TIMER (No Squircle Box, Zero Clutter) -->
+        <div class="flex-1 flex items-center justify-center my-auto">
+          <div id="svg-stage" class="relative w-[290px] h-[290px] flex items-center justify-center cursor-pointer tap-btn">
+            <svg id="emom-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-full h-full overflow-visible" fill="none">
+              <defs>
+                <!-- Shared Unrotated Gradient (Identical coordinates on Ring & Plank -> Zero 8 o'clock seam!) -->
+                <linearGradient id="accent-grad" x1="80" y1="80" x2="400" y2="380" gradientUnits="userSpaceOnUse">
+                  <stop id="grad-stop-1" offset="0%" stop-color="#FF8800"/>
+                  <stop id="grad-stop-2" offset="45%" stop-color="#FF4D00"/>
+                  <stop id="grad-stop-3" offset="100%" stop-color="#FF2A00"/>
+                </linearGradient>
+
+                <!-- Canvas-Wide Neon Glow Filter (No Box Clipping around Head) -->
+                <filter id="glow-a" filterUnits="userSpaceOnUse" x="-60" y="-60" width="632" height="632">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- 1. Dim 60-Second Background Ring Track -->
+              <circle cx="256" cy="256" r="176" stroke="#1C2230" stroke-width="28" stroke-linecap="round"/>
+
+              <!-- 2. Subtle 15-Second Quadrant Tick Marks -->
+              <g stroke="#2B3448" stroke-width="6" stroke-linecap="round">
+                <line x1="256" y1="42" x2="256" y2="54"/>
+                <line x1="470" y1="256" x2="458" y2="256"/>
+                <line x1="256" y1="470" x2="256" y2="458"/>
+                <line x1="42" y1="256" x2="54" y2="256"/>
+              </g>
+
+              <!-- 3. Subtle Horizontal Floor Line (Fades out during Morph) -->
+              <line id="floor-line" x1="156" y1="344" x2="360" y2="344" stroke="#252C3D" stroke-width="10" stroke-linecap="round"/>
+
+              <!-- 4. UNIFIED GLOWING GROUP (Unrotated Paths -> Seamless 8 O'Clock Color Match) -->
+              <g id="glow-group" filter="url(#glow-a)">
+                <!-- Active Outer Ring: Unrotated path starting at 12 o'clock (256, 80), r=176, Circumference=1105.84 -->
+                <path id="emom-ring"
+                      d="M 256 80 A 176 176 0 1 1 256 432 A 176 176 0 1 1 256 80"
+                      stroke="url(#accent-grad)"
+                      stroke-width="28"
+                      stroke-linecap="round"
+                      stroke-dasharray="737.23 1105.84"
+                      stroke-dashoffset="0"/>
+
+                <!-- 32° Plank Body + Vertical Arm: Starts at exact 8 o'clock junction (103.58, 344) -->
+                <path id="plank-path"
+                      d="M 103.58 344 L 304 220 L 304 344"
+                      stroke="url(#accent-grad)"
+                      stroke-width="28"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-dasharray="359.68 359.68"
+                      stroke-dashoffset="0"/>
+
+                <!-- Detached Geometric Head Node -->
+                <circle id="head-node" cx="352" cy="190" r="22" fill="url(#accent-grad)"/>
+              </g>
+
+              <!-- 5. 12 O'Clock Origin Dot -->
+              <circle cx="256" cy="80" r="6" fill="#FFFFFF"/>
+
+              <!-- 6. MINIMALIST CENTER SECONDS NUMBER (Solid Crisp White, Zero Blur/Glow) -->
+              <g id="center-seconds-group" opacity="0" transform="scale(0.88)" style="transform-origin: 256px 256px; pointer-events: none;">
+                <text id="center-seconds-text"
+                      x="256"
+                      y="304"
+                      text-anchor="middle"
+                      fill="#FFFFFF"
+                      font-family="Inter, -apple-system, sans-serif"
+                      font-weight="800"
+                      font-size="136"
+                      class="tabular-nums"
+                      letter-spacing="-5">60</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- STATE A: ULTRA-CLEAN SETUP CONTROLS (3 Rows + Start)            -->
+        <!-- =============================================================== -->
+        <div id="setup-controls" class="space-y-2.5">
+
+          <!-- Row 1: Push-Ups / Min -->
+          <div class="h-[60px] px-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between">
+            <span class="text-sm font-semibold text-slate-200">Push-Ups / Min</span>
+            <div class="flex items-center gap-3">
+              <button id="reps-minus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">−</button>
+              <span id="reps-display" class="w-10 text-center font-bold text-lg text-white tabular-nums">15</span>
+              <button id="reps-plus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">+</button>
+            </div>
+          </div>
+
+          <!-- Row 2: Dauer (Minutes or ∞ Endlos) -->
+          <div class="h-[60px] px-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <span class="text-sm font-semibold text-slate-200">Dauer</span>
+              <button id="btn-endless" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-white/10 bg-white/5 text-slate-400 tap-btn" title="Endlos-Modus umschalten">∞</button>
+            </div>
+            <div class="flex items-center gap-3">
+              <button id="mins-minus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">−</button>
+              <span id="mins-display" class="w-16 text-center font-bold text-base text-white tabular-nums">10 Min</span>
+              <button id="mins-plus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">+</button>
+            </div>
+          </div>
+
+          <!-- Row 3: Rest-Set (Freely selectable: Aus, Jede 2. Min ... Jede 15. Min) -->
+          <div class="h-[60px] px-4 rounded-2xl bg-app-card border border-app-border flex items-center justify-between">
+            <span class="text-sm font-semibold text-slate-200">Rest-Set</span>
+            <div class="flex items-center gap-3">
+              <button id="rest-minus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">−</button>
+              <span id="rest-display" class="w-24 text-center font-bold text-sm text-slate-300 tabular-nums">Aus</span>
+              <button id="rest-plus" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center tap-btn">+</button>
+            </div>
+          </div>
+
+          <!-- Primary START Button -->
+          <button id="btn-start" class="w-full h-[58px] mt-1 rounded-2xl bg-gradient-to-r from-laser-orange to-laser-amber text-white font-extrabold text-base tracking-wide shadow-[0_10px_28px_rgba(255,77,0,0.32)] flex items-center justify-center tap-btn">
+            START
+          </button>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- STATE B: MINIMALIST ACTIVE WORKOUT CONTROLS                     -->
+        <!-- (Only Status + One-Way "Satz fertig" + Full-width "Beenden")    -->
+        <!-- =============================================================== -->
+        <div id="workout-controls" class="hidden space-y-2.5">
+
+          <!-- Clean Status Row Outside the Ring -->
+          <div class="h-[62px] px-5 rounded-2xl bg-app-card border border-app-border flex items-center justify-between">
+            <div>
+              <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Aktuelle Runde</span>
+              <span id="live-round-text" class="font-bold text-base text-white tabular-nums">Runde 1 / 10</span>
+            </div>
+            <div class="text-right">
+              <span id="live-phase-label" class="text-[11px] font-semibold uppercase tracking-wider text-laser-amber block">Ziel</span>
+              <span id="live-target-text" class="font-extrabold text-base text-white tabular-nums">15 Push-Ups</span>
+            </div>
+          </div>
+
+          <!-- Top Button: One-Way "Satz fertig" (Greys out & locks until next minute!) -->
+          <button id="btn-set-done" class="w-full h-[54px] rounded-2xl bg-cyber-cyan/15 border border-cyber-cyan/40 text-cyber-cyan font-bold text-sm tracking-wide flex items-center justify-center gap-2 tap-btn">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <span id="set-done-text">Satz fertig</span>
+          </button>
+
+          <!-- Bottom Button: Full-Width "Beenden" (No Pause or Test buttons) -->
+          <button id="btn-stop" class="w-full h-[50px] rounded-2xl bg-app-card hover:bg-rose-500/10 border border-app-border hover:border-rose-500/30 text-sm font-bold text-rose-400 flex items-center justify-center tap-btn">
+            Beenden
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3 (RIGHT): STATS — KPIs + GITHUB HEATMAP & DAY EDITOR + CHART -->
+      <!-- ================================================================= -->
+      <div id="tab-stats" class="hidden flex-col space-y-4 pb-2">
+
+        <!-- Section Header + Range Filter (7D | 30D | 90D | All) -->
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-extrabold tracking-tight text-white">Analytics</h2>
+          <div class="p-1 rounded-xl bg-app-card border border-app-border flex items-center gap-0.5 text-[11px] font-bold">
+            <button data-range="7" class="range-btn px-2.5 py-1 rounded-lg bg-white/10 text-white tap-btn">7D</button>
+            <button data-range="30" class="range-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white tap-btn">30D</button>
+            <button data-range="90" class="range-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white tap-btn">90D</button>
+            <button data-range="all" class="range-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white tap-btn">All</button>
+          </div>
+        </div>
+
+        <!-- 2x2 KPI Grid -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="p-3.5 rounded-2xl bg-app-card border border-app-border flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current Streak</span>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="text-lg">🔥</span>
+              <span id="kpi-current-streak" class="text-2xl font-extrabold text-white tabular-nums">14</span>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-2xl bg-app-card border border-app-border flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Longest Streak</span>
+            <div id="kpi-longest-streak" class="text-2xl font-extrabold text-white mt-1 tabular-nums">28</div>
+          </div>
+
+          <div class="p-3.5 rounded-2xl bg-app-card border border-app-border flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Reps</span>
+            <div id="kpi-total-reps" class="text-2xl font-extrabold text-laser-amber mt-1 tabular-nums">3,420</div>
+          </div>
+
+          <div class="p-3.5 rounded-2xl bg-app-card border border-app-border flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Daily Average</span>
+            <div id="kpi-daily-avg" class="text-2xl font-extrabold text-cyber-cyan mt-1 tabular-nums">52.6</div>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- GITHUB-LIKE HEATMAP + INTERACTIVE PAST-DAY EDITOR CARD          -->
+        <!-- =============================================================== -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 space-y-3.5">
+          <!-- Heatmap Header -->
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white">Activity Heatmap</h3>
+              <p class="text-[11px] text-slate-400">Tippe auf einen Tag zum Prüfen & Bearbeiten</p>
+            </div>
+            <!-- Intensity Legend -->
+            <div class="flex items-center gap-1 text-[10px] text-slate-400">
+              <span>Less</span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-0 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-1 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-2 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-3 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-[3px] heat-4 inline-block"></span>
+              <span>More</span>
+            </div>
+          </div>
+
+          <!-- Month Labels above Grid -->
+          <div class="flex justify-between text-[10px] font-semibold text-slate-400 px-5">
+            <span>Aug</span>
+            <span>Sep</span>
+            <span>Oct 2026</span>
+          </div>
+
+          <!-- GitHub 12-Week x 7-Day Matrix -->
+          <div class="flex items-center gap-1.5">
+            <!-- Weekday Labels -->
+            <div class="flex flex-col justify-between h-[116px] text-[9px] font-semibold text-slate-500 py-0.5">
+              <span>M</span>
+              <span>W</span>
+              <span>F</span>
+              <span>S</span>
+            </div>
+            <!-- 12 Columns (Weeks) x 7 Rows (Days) -->
+            <div id="heatmap-grid" class="flex-1 grid grid-cols-12 gap-1.5"></div>
+          </div>
+
+          <!-- SELECTED DAY INSPECTOR & INLINE EDITOR (Replaces old History card) -->
+          <div class="pt-3 border-t border-white/[0.07] space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-laser-orange"></span>
+                <h4 id="selected-day-title" class="text-sm font-extrabold text-white">Wednesday, Oct 28</h4>
+              </div>
+              <button id="btn-toggle-day-edit" class="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[11px] font-bold text-slate-200 tap-btn">
+                Edit
+              </button>
+            </div>
+
+            <!-- Read-Only Summary View for Selected Day -->
+            <div id="day-readonly-view" class="space-y-1.5 text-xs pt-0.5">
+              <div class="flex items-center justify-between text-slate-300">
+                <span>Morning:</span>
+                <span id="inspector-morning" class="font-bold text-white tabular-nums">20 reps</span>
+              </div>
+              <div class="flex items-center justify-between text-slate-300">
+                <span>Evening:</span>
+                <span id="inspector-evening" class="font-bold text-white tabular-nums">30 reps</span>
+              </div>
+              <div class="flex items-center justify-between text-slate-300">
+                <span>EMOM:</span>
+                <span id="inspector-emom" class="font-bold text-cyber-cyan tabular-nums">45 reps</span>
+              </div>
+              <div class="pt-1.5 border-t border-white/[0.06] flex items-center justify-between text-sm font-extrabold">
+                <span class="text-white">Total:</span>
+                <span id="inspector-total" class="text-laser-amber tabular-nums">95 reps</span>
+              </div>
+            </div>
+
+            <!-- Interactive Edit Mode for Selected Past/Current Day -->
+            <div id="day-edit-view" class="hidden space-y-2 pt-1">
+              <!-- Edit Morning -->
+              <div class="flex items-center justify-between bg-app-input px-3 py-2 rounded-xl border border-white/[0.06]">
+                <span class="text-xs font-semibold text-slate-300">Morning</span>
+                <div class="flex items-center gap-1.5">
+                  <button data-field="morning" data-delta="-5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-5</button>
+                  <button data-field="morning" data-delta="-1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-1</button>
+                  <span id="edit-val-morning" class="w-10 text-center text-xs font-extrabold text-white tabular-nums">20</span>
+                  <button data-field="morning" data-delta="1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+1</button>
+                  <button data-field="morning" data-delta="5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+5</button>
+                </div>
+              </div>
+
+              <!-- Edit Evening -->
+              <div class="flex items-center justify-between bg-app-input px-3 py-2 rounded-xl border border-white/[0.06]">
+                <span class="text-xs font-semibold text-slate-300">Evening</span>
+                <div class="flex items-center gap-1.5">
+                  <button data-field="evening" data-delta="-5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-5</button>
+                  <button data-field="evening" data-delta="-1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-1</button>
+                  <span id="edit-val-evening" class="w-10 text-center text-xs font-extrabold text-white tabular-nums">30</span>
+                  <button data-field="evening" data-delta="1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+1</button>
+                  <button data-field="evening" data-delta="5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+5</button>
+                </div>
+              </div>
+
+              <!-- Edit EMOM -->
+              <div class="flex items-center justify-between bg-app-input px-3 py-2 rounded-xl border border-white/[0.06]">
+                <span class="text-xs font-semibold text-cyber-cyan">EMOM</span>
+                <div class="flex items-center gap-1.5">
+                  <button data-field="emom" data-delta="-5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-5</button>
+                  <button data-field="emom" data-delta="-1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">-1</button>
+                  <span id="edit-val-emom" class="w-10 text-center text-xs font-extrabold text-cyber-cyan tabular-nums">45</span>
+                  <button data-field="emom" data-delta="1" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+1</button>
+                  <button data-field="emom" data-delta="5" class="day-edit-step w-7 h-7 rounded-lg bg-white/5 text-[11px] font-bold text-slate-300 tap-btn">+5</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- 4. DAILY REPS GRAPH CARD (Directly after Heatmap)               -->
+        <!-- =============================================================== -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-extrabold tracking-tight text-white">Daily Reps</h3>
+            <!-- Legend Pill matching Screenshot -->
+            <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-300">
+              <span class="w-7 h-3 rounded-[3px] border-2 border-laser-orange bg-laser-orange/20 inline-block"></span>
+              <span>Total Reps</span>
+            </div>
+          </div>
+
+          <!-- Responsive SVG Spline Chart (Y-axis + Grid + Smooth Orange Curve + Dots) -->
+          <div class="relative w-full pt-1">
+            <svg id="daily-reps-svg" viewBox="0 0 320 164" class="w-full h-[164px] overflow-visible" fill="none">
+              <defs>
+                <linearGradient id="daily-area-grad" x1="0" y1="12" x2="0" y2="132" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#FF5500" stop-opacity="0.30"/>
+                  <stop offset="100%" stop-color="#FF5500" stop-opacity="0.0"/>
+                </linearGradient>
+                <linearGradient id="daily-line-grad" x1="32" y1="0" x2="306" y2="0" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#FF4D00"/>
+                  <stop offset="50%" stop-color="#FF6A00"/>
+                  <stop offset="100%" stop-color="#FF8800"/>
+                </linearGradient>
+              </defs>
+
+              <g id="daily-grid-layer"></g>
+              <path id="daily-area-path" d="" fill="url(#daily-area-grad)"/>
+              <path id="daily-line-path" d="" stroke="url(#daily-line-grad)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+              <g id="daily-dots-layer"></g>
+              <g id="daily-xlabels-layer"></g>
+            </svg>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- 5. 7-DAY ROLLING AVG GRAPH CARD (After Daily Reps)              -->
+        <!-- =============================================================== -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-extrabold tracking-tight text-white">7-Day Rolling Avg</h3>
+            <!-- Legend Pill matching Screenshot -->
+            <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-300">
+              <span class="w-7 h-3 rounded-[3px] border-2 border-cyber-cyan bg-cyber-cyan/20 inline-block"></span>
+              <span>7-Day Rolling Avg</span>
+            </div>
+          </div>
+
+          <!-- Responsive SVG Spline Chart (Y-axis + Grid + Smooth Cyan Curve + Dots) -->
+          <div class="relative w-full pt-1">
+            <svg id="rolling-avg-svg" viewBox="0 0 320 164" class="w-full h-[164px] overflow-visible" fill="none">
+              <defs>
+                <linearGradient id="rolling-area-grad" x1="0" y1="12" x2="0" y2="132" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.28"/>
+                  <stop offset="100%" stop-color="#00F0FF" stop-opacity="0.0"/>
+                </linearGradient>
+                <linearGradient id="rolling-line-grad" x1="34" y1="0" x2="308" y2="0" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#0088FF"/>
+                  <stop offset="50%" stop-color="#00F0FF"/>
+                  <stop offset="100%" stop-color="#00F0FF"/>
+                </linearGradient>
+              </defs>
+
+              <g id="rolling-grid-layer"></g>
+              <path id="rolling-area-path" d="" fill="url(#rolling-area-grad)"/>
+              <path id="rolling-line-path" d="" stroke="url(#rolling-line-grad)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+              <g id="rolling-dots-layer"></g>
+              <g id="rolling-xlabels-layer"></g>
+            </svg>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- 6. PERSONAL RECORDS CARD (Bottom of Stats Tab)                  -->
+        <!-- =============================================================== -->
+        <section class="rounded-[24px] bg-app-card border border-app-border p-4">
+          <div class="flex items-center justify-between pb-2 mb-1">
+            <h3 class="text-base font-extrabold tracking-tight text-white">Personal Records</h3>
+          </div>
+
+          <div class="divide-y divide-white/[0.06] text-sm">
+            <!-- Row 1: Best Single Set -->
+            <div class="py-3 flex items-center justify-between">
+              <span class="font-medium text-slate-200">Best Single Set</span>
+              <span id="pr-best-single-set" class="font-extrabold text-base text-cyber-cyan tabular-nums">20</span>
+            </div>
+
+            <!-- Row 2: Best Session -->
+            <div class="py-3 flex items-center justify-between">
+              <span class="font-medium text-slate-200">Best Session</span>
+              <span id="pr-best-session" class="font-extrabold text-base text-cyber-cyan tabular-nums">45</span>
+            </div>
+
+            <!-- Row 3: Best Day -->
+            <div class="py-3 flex items-center justify-between">
+              <span class="font-medium text-slate-200">Best Day</span>
+              <span id="pr-best-day" class="font-extrabold text-base text-laser-amber tabular-nums">68</span>
+            </div>
+
+            <!-- Row 4: Bestes EMOM -->
+            <div class="pt-3 pb-0.5 flex items-center justify-between">
+              <span class="font-medium text-slate-200">Bestes EMOM</span>
+              <span id="pr-best-emom" class="font-extrabold text-base text-cyber-cyan tabular-nums">—</span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- BOTTOM 3-TAB iOS NAVIGATION BAR (Today | EMOM | Stats)              -->
+    <!-- =================================================================== -->
+    <nav class="relative z-20 bg-app-bg/95 backdrop-blur-md border-t border-white/[0.06] px-6 pt-2.5 pb-6 flex items-center justify-around shrink-0">
+
+      <!-- Tab 1 (Left): Today Sessions -->
+      <button id="nav-today" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 tap-btn">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+        <span class="text-[10px] font-semibold">Today</span>
+      </button>
+
+      <!-- Tab 2 (Center): EMOM (Custom Clock-Hand Plank Glyph) -->
+      <button id="nav-emom" class="flex flex-col items-center gap-1 text-laser-orange tap-btn">
+        <svg class="w-5 h-5" viewBox="0 0 512 512" fill="none">
+          <circle cx="256" cy="256" r="176" stroke="currentColor" stroke-opacity="0.25" stroke-width="48"/>
+          <path d="M 256 80 A 176 176 0 1 1 103.58 344 L 304 220 L 304 344" stroke="currentColor" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="352" cy="190" r="36" fill="currentColor"/>
+        </svg>
+        <span class="text-[10px] font-bold">EMOM</span>
+      </button>
+
+      <!-- Tab 3 (Right): Stats & Heatmap History -->
+      <button id="nav-stats" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 tap-btn">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <span class="text-[10px] font-semibold">Stats</span>
+      </button>
+
+      <!-- iOS Home Indicator -->
+      <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 rounded-full bg-white/20 pointer-events-none"></div>
+    </nav>
+
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- UNIFIED APP LOGIC: TODAY SESSIONS + 60FPS EMOM + HEATMAP EDITOR       -->
+  <!-- ===================================================================== -->
+  <script>
+    (function() {
+      // ===================================================================
+      // 1. SHARED DATA MODEL (84 Days of History ending Wed, Oct 28, 2026)
+      // ===================================================================
+      const TOTAL_DAYS = 84; // 12 Weeks x 7 Days
+      const TODAY_INDEX = TOTAL_DAYS - 1; // Index 83 = Wednesday, Oct 28
+
+      // Today's individual sets for Tab 1 ("Today")
+      let todayMorningSets = [10, 10, 0];
+      let todayEveningSets = [15, 15, 0];
+
+      // Explicit last-7-days profile (10-22 .. 10-28) matching screenshot curve
+      const last7DaysPreset = {
+        6: { morning: 0,  evening: 0,  emom: 0, bestSet: 0  }, // 10-22: 0
+        5: { morning: 25, evening: 35, emom: 0, bestSet: 20 }, // 10-23: 60
+        4: { morning: 0,  evening: 0,  emom: 0, bestSet: 0  }, // 10-24: 0
+        3: { morning: 20, evening: 20, emom: 0, bestSet: 15 }, // 10-25: 40
+        2: { morning: 25, evening: 35, emom: 0, bestSet: 20 }, // 10-26: 60
+        1: { morning: 20, evening: 30, emom: 0, bestSet: 15 }, // 10-27: 50
+        0: { morning: 20, evening: 30, emom: 0, bestSet: 15 }  // 10-28: 50
+      };
+
+      // Generate deterministic, realistic 12-week push-up dataset
+      const historyDays = [];
+      const baseDate = new Date(2026, 9, 28); // Oct 28, 2026
+
+      for (let i = 0; i < TOTAL_DAYS; i++) {
+        const offset = TOTAL_DAYS - 1 - i;
+        const d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - offset);
+
+        const label = d.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric'
+        });
+        const shortLabel = d.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+        const mmdd = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+        let morning = 0, evening = 0, emom = 0, bestSet = 0;
+        if (last7DaysPreset[offset] !== undefined) {
+          morning = last7DaysPreset[offset].morning;
+          evening = last7DaysPreset[offset].evening;
+          emom = last7DaysPreset[offset].emom;
+          bestSet = last7DaysPreset[offset].bestSet;
+        } else {
+          const seed = (i * 37 + 13) % 100;
+          if (seed > 28) {
+            morning = ((i * 7) % 3 + 1) * 10; // 10 - 30
+            evening = ((i * 11) % 3 + 1) * 12; // 12 - 36
+            emom = 0;
+            bestSet = 20;
+          }
+        }
+
+        historyDays.push({
+          index: i,
+          dateObj: d,
+          label,
+          shortLabel,
+          mmdd,
+          morning,
+          evening,
+          emom,
+          bestSet
+        });
+      }
+
+      let selectedDayIndex = TODAY_INDEX;
+      let isDayEditMode = false;
+      let currentChartRange = 7;
+
+      // ===================================================================
+      // 2. TAB 1 ("TODAY") — MORNING & EVENING SESSIONS RENDERER
+      // ===================================================================
+      const morningSetsList = document.getElementById('morning-sets-list');
+      const eveningSetsList = document.getElementById('evening-sets-list');
+      const morningTotalVal = document.getElementById('morning-total-val');
+      const eveningTotalVal = document.getElementById('evening-total-val');
+      const morningStatusBadge = document.getElementById('morning-status-badge');
+      const eveningStatusBadge = document.getElementById('evening-status-badge');
+
+      function createSetRowHTML(sessionType, setIndex, reps) {
+        const displayVal = reps > 0 ? reps : '';
+        return `
+          <div class="flex items-center justify-between gap-2 pt-2 first:pt-0 border-t border-white/[0.04] first:border-0">
+            <div class="w-10 text-xs font-semibold text-slate-400 leading-tight">
+              Set<br><span class="text-white font-bold">${setIndex + 1}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button data-session="${sessionType}" data-idx="${setIndex}" data-delta="-5" class="session-step-btn w-8 h-10 rounded-xl bg-app-input border border-white/[0.08] hover:border-white/20 text-xs font-bold text-slate-300 tap-btn">-5</button>
+              <button data-session="${sessionType}" data-idx="${setIndex}" data-delta="-1" class="session-step-btn w-8 h-10 rounded-xl bg-app-input border border-white/[0.08] hover:border-white/20 text-xs font-bold text-slate-300 tap-btn">-1</button>
+            </div>
+            <div class="flex-1 h-11 rounded-2xl bg-app-input border border-white/[0.09] flex items-center justify-center">
+              <span class="text-lg font-extrabold text-white tabular-nums">${displayVal}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button data-session="${sessionType}" data-idx="${setIndex}" data-delta="1" class="session-step-btn w-8 h-10 rounded-xl bg-app-input border border-white/[0.08] hover:border-white/20 text-xs font-bold text-slate-300 tap-btn">+1</button>
+              <button data-session="${sessionType}" data-idx="${setIndex}" data-delta="5" class="session-step-btn w-8 h-10 rounded-xl bg-app-input border border-white/[0.08] hover:border-white/20 text-xs font-bold text-slate-300 tap-btn">+5</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderTodaySessions() {
+        morningSetsList.innerHTML = todayMorningSets
+          .map((r, idx) => createSetRowHTML('morning', idx, r))
+          .join('');
+        eveningSetsList.innerHTML = todayEveningSets
+          .map((r, idx) => createSetRowHTML('evening', idx, r))
+          .join('');
+
+        const mTotal = todayMorningSets.reduce((a, b) => a + b, 0);
+        const eTotal = todayEveningSets.reduce((a, b) => a + b, 0);
+
+        morningTotalVal.textContent = mTotal;
+        eveningTotalVal.textContent = eTotal;
+
+        // Update Complete / Incomplete Badges
+        if (mTotal > 0) {
+          morningStatusBadge.textContent = 'Complete';
+          morningStatusBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-emerald-500/15 border border-emerald-500/40 text-emerald-400';
+        } else {
+          morningStatusBadge.textContent = 'Incomplete';
+          morningStatusBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/5 border border-white/10 text-slate-400';
+        }
+
+        if (eTotal > 0) {
+          eveningStatusBadge.textContent = 'Complete';
+          eveningStatusBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-emerald-500/15 border border-emerald-500/40 text-emerald-400';
+        } else {
+          eveningStatusBadge.textContent = 'Incomplete';
+          eveningStatusBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/5 border border-white/10 text-slate-400';
+        }
+
+        // Sync with Today's entry in historyDays
+        historyDays[TODAY_INDEX].morning = mTotal;
+        historyDays[TODAY_INDEX].evening = eTotal;
+        historyDays[TODAY_INDEX].bestSet = Math.max(0, ...todayMorningSets, ...todayEveningSets);
+
+        // Bind stepper clicks
+        document.querySelectorAll('.session-step-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const session = btn.getAttribute('data-session');
+            const idx = parseInt(btn.getAttribute('data-idx'), 10);
+            const delta = parseInt(btn.getAttribute('data-delta'), 10);
+
+            if (session === 'morning') {
+              todayMorningSets[idx] = Math.max(0, todayMorningSets[idx] + delta);
+            } else {
+              todayEveningSets[idx] = Math.max(0, todayEveningSets[idx] + delta);
+            }
+            renderTodaySessions();
+            renderStatsAndHeatmap();
+          });
+        });
+      }
+
+      document.getElementById('btn-add-morning-set').addEventListener('click', () => {
+        todayMorningSets.push(0);
+        renderTodaySessions();
+      });
+
+      document.getElementById('btn-add-evening-set').addEventListener('click', () => {
+        todayEveningSets.push(0);
+        renderTodaySessions();
+      });
+
+      // ===================================================================
+      // 3. TAB 3 ("STATS") — HEATMAP, PAST-DAY EDITOR & ANALYTICS
+      // ===================================================================
+      const heatmapGrid = document.getElementById('heatmap-grid');
+      const selectedDayTitle = document.getElementById('selected-day-title');
+      const btnToggleDayEdit = document.getElementById('btn-toggle-day-edit');
+      const dayReadonlyView = document.getElementById('day-readonly-view');
+      const dayEditView = document.getElementById('day-edit-view');
+
+      function getHeatLevelClass(total) {
+        if (total <= 0) return 'heat-0';
+        if (total < 30) return 'heat-1';
+        if (total < 60) return 'heat-2';
+        if (total < 90) return 'heat-3';
+        return 'heat-4';
+      }
+
+      function renderStatsAndHeatmap() {
+        // 1. Calculate KPIs (Filtered by 7D | 30D | 90D | All for Total Reps & Daily Average)
+        let currentStreak = 0;
+        for (let i = TODAY_INDEX; i >= 0; i--) {
+          const d = historyDays[i];
+          if (d.morning + d.evening + d.emom > 0) {
+            currentStreak++;
+          } else {
+            break;
+          }
+        }
+
+        let longestStreak = 0;
+        let running = 0;
+        historyDays.forEach(d => {
+          const t = d.morning + d.evening + d.emom;
+          if (t > 0) {
+            running++;
+            if (running > longestStreak) longestStreak = running;
+          } else {
+            running = 0;
+          }
+        });
+
+        const rangeCount = currentChartRange === 'all'
+          ? TOTAL_DAYS
+          : Math.min(TOTAL_DAYS, parseInt(currentChartRange, 10));
+        const rangeSlice = historyDays.slice(TOTAL_DAYS - rangeCount);
+        const rangeTotal = rangeSlice.reduce((acc, d) => acc + d.morning + d.evening + d.emom, 0);
+        const rangeAvg = (rangeTotal / rangeCount).toFixed(1);
+
+        document.getElementById('kpi-current-streak').textContent = currentStreak;
+        document.getElementById('header-streak-count').textContent = currentStreak;
+        document.getElementById('kpi-longest-streak').textContent = longestStreak;
+        document.getElementById('kpi-total-reps').textContent = rangeTotal.toLocaleString('en-US');
+        document.getElementById('kpi-daily-avg').textContent = rangeAvg;
+
+        // 2. Render 12-Week x 7-Day Heatmap Columns
+        let colsHTML = '';
+        for (let w = 0; w < 12; w++) {
+          let cellsHTML = '';
+          for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+            const idx = w * 7 + dayOfWeek;
+            const dayObj = historyDays[idx];
+            const total = dayObj.morning + dayObj.evening + dayObj.emom;
+            const heatClass = getHeatLevelClass(total);
+            const isSelected = idx === selectedDayIndex;
+            const ringStyle = isSelected
+              ? 'ring-2 ring-white scale-110 z-10'
+              : 'hover:ring-1 hover:ring-white/50';
+
+            cellsHTML += `
+              <button data-day-idx="${idx}"
+                      title="${dayObj.label}: ${total} reps"
+                      class="heatmap-cell w-full aspect-square rounded-[4px] ${heatClass} ${ringStyle} transition-transform"></button>
+            `;
+          }
+          colsHTML += `<div class="flex flex-col gap-1.5">${cellsHTML}</div>`;
+        }
+        heatmapGrid.innerHTML = colsHTML;
+
+        document.querySelectorAll('.heatmap-cell').forEach(cell => {
+          cell.addEventListener('click', () => {
+            selectedDayIndex = parseInt(cell.getAttribute('data-day-idx'), 10);
+            renderStatsAndHeatmap();
+          });
+        });
+
+        // 3. Render Selected Day Inspector & Inline Editor
+        const sel = historyDays[selectedDayIndex];
+        const selTotal = sel.morning + sel.evening + sel.emom;
+
+        selectedDayTitle.textContent = selectedDayIndex === TODAY_INDEX
+          ? `${sel.label} (Today)`
+          : sel.label;
+
+        document.getElementById('inspector-morning').textContent = `${sel.morning} reps`;
+        document.getElementById('inspector-evening').textContent = `${sel.evening} reps`;
+        document.getElementById('inspector-emom').textContent = sel.emom > 0 ? `${sel.emom} reps` : '—';
+        document.getElementById('inspector-total').textContent = `${selTotal} reps`;
+
+        document.getElementById('edit-val-morning').textContent = sel.morning;
+        document.getElementById('edit-val-evening').textContent = sel.evening;
+        document.getElementById('edit-val-emom').textContent = sel.emom;
+
+        // 4. Render Daily Reps Spline Chart (Directly below Heatmap)
+        renderDailyChart();
+
+        // 5. Render 7-Day Rolling Avg Spline Chart (Below Daily Reps)
+        renderRollingAvgChart();
+
+        // 6. Render Personal Records Card (Bottom of Stats)
+        renderPersonalRecords();
+      }
+
+      // Helper: Shared SVG Spline Renderer for Daily Reps & 7-Day Rolling Avg
+      function drawSplineChart(config) {
+        const {
+          pointsData,
+          yStep,
+          minYMax,
+          gridLayerId,
+          areaPathId,
+          linePathId,
+          dotsLayerId,
+          xlabelsLayerId,
+          dotColor
+        } = config;
+
+        const gridLayer = document.getElementById(gridLayerId);
+        const areaPath = document.getElementById(areaPathId);
+        const linePath = document.getElementById(linePathId);
+        const dotsLayer = document.getElementById(dotsLayerId);
+        const xlabelsLayer = document.getElementById(xlabelsLayerId);
+
+        const leftPad = 30;
+        const rightPad = 304;
+        const topPad = 12;
+        const bottomPad = 132;
+        const chartW = rightPad - leftPad;
+        const chartH = bottomPad - topPad;
+
+        const maxVal = Math.max(minYMax, ...pointsData.map(p => p.val));
+        const yMax = Math.ceil(maxVal / yStep) * yStep;
+        const numSteps = Math.round(yMax / yStep);
+
+        // Horizontal + Vertical Grid Lines + Y-Axis Labels
+        let gridHTML = '';
+        for (let s = 0; s <= numSteps; s++) {
+          const val = s * yStep;
+          const y = bottomPad - (val / yMax) * chartH;
+          gridHTML += `
+            <line x1="${leftPad}" y1="${y.toFixed(1)}" x2="${rightPad}" y2="${y.toFixed(1)}" stroke="#1B2232" stroke-width="1"/>
+            <text x="${leftPad - 7}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" fill="#64748B" font-size="9.5" font-weight="600" class="tabular-nums">${val}</text>
+          `;
+        }
+
+        // Map data points to SVG coordinates
+        const coords = pointsData.map((pt, i) => {
+          const x = leftPad + (i / (pointsData.length - 1)) * chartW;
+          const y = bottomPad - Math.min(1, Math.max(0, pt.val / yMax)) * chartH;
+          return { ...pt, x, y };
+        });
+
+        // Subtle vertical grid lines for each date column
+        coords.forEach(c => {
+          gridHTML += `<line x1="${c.x.toFixed(1)}" y1="${topPad}" x2="${c.x.toFixed(1)}" y2="${bottomPad}" stroke="#1B2232" stroke-width="1"/>`;
+        });
+        gridLayer.innerHTML = gridHTML;
+
+        // Smooth Cubic Bezier path clamped inside [topPad, bottomPad]
+        let dLine = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`;
+        for (let i = 0; i < coords.length - 1; i++) {
+          const p0 = coords[i];
+          const p1 = coords[i + 1];
+          const cpx1 = p0.x + (p1.x - p0.x) * 0.42;
+          const cpy1 = Math.min(bottomPad, Math.max(topPad, p0.y));
+          const cpx2 = p1.x - (p1.x - p0.x) * 0.42;
+          const cpy2 = Math.min(bottomPad, Math.max(topPad, p1.y));
+          dLine += ` C ${cpx1.toFixed(1)} ${cpy1.toFixed(1)}, ${cpx2.toFixed(1)} ${cpy2.toFixed(1)}, ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
+        }
+
+        const dArea = `${dLine} L ${coords[coords.length - 1].x.toFixed(1)} ${bottomPad} L ${coords[0].x.toFixed(1)} ${bottomPad} Z`;
+        linePath.setAttribute('d', dLine);
+        areaPath.setAttribute('d', dArea);
+
+        // Interactive data nodes
+        dotsLayer.innerHTML = coords.map(c => {
+          const isSelected = c.dayIdx === selectedDayIndex;
+          const r = isSelected ? 5 : 3.5;
+          const stroke = isSelected ? '#FFFFFF' : '#07090E';
+          return `
+            <g class="chart-node cursor-pointer" data-day-idx="${c.dayIdx}">
+              <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="11" fill="transparent"/>
+              <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${r}" fill="${dotColor}" stroke="${stroke}" stroke-width="2"/>
+            </g>
+          `;
+        }).join('');
+
+        // X-axis MM-DD date labels
+        xlabelsLayer.innerHTML = coords.map(c => {
+          const isSelected = c.dayIdx === selectedDayIndex;
+          const color = isSelected ? '#FFFFFF' : '#64748B';
+          return `
+            <text x="${c.x.toFixed(1)}" y="${bottomPad + 19}" text-anchor="middle" fill="${color}" font-size="9.5" font-weight="600" class="tabular-nums">${c.mmdd}</text>
+          `;
+        }).join('');
+
+        dotsLayer.querySelectorAll('.chart-node').forEach(node => {
+          node.addEventListener('click', () => {
+            selectedDayIndex = parseInt(node.getAttribute('data-day-idx'), 10);
+            renderStatsAndHeatmap();
+          });
+        });
+      }
+
+      // 4. Render Daily Reps Smooth Spline Chart (10-22 .. 10-28)
+      function renderDailyChart() {
+        const pointsData = [];
+        for (let offset = 6; offset >= 0; offset--) {
+          const dayIdx = TODAY_INDEX - offset;
+          const d = historyDays[dayIdx];
+          const total = d.morning + d.evening + d.emom;
+          pointsData.push({
+            dayIdx,
+            mmdd: d.mmdd,
+            val: total
+          });
+        }
+
+        drawSplineChart({
+          pointsData,
+          yStep: 10,
+          minYMax: 60,
+          gridLayerId: 'daily-grid-layer',
+          areaPathId: 'daily-area-path',
+          linePathId: 'daily-line-path',
+          dotsLayerId: 'daily-dots-layer',
+          xlabelsLayerId: 'daily-xlabels-layer',
+          dotColor: '#FF6A00'
+        });
+      }
+
+      // 5. Render 7-Day Rolling Average Smooth Spline Chart (10-22 .. 10-28)
+      function renderRollingAvgChart() {
+        const pointsData = [];
+        for (let offset = 6; offset >= 0; offset--) {
+          const dayIdx = TODAY_INDEX - offset;
+          let sum7 = 0;
+          for (let k = 0; k < 7; k++) {
+            const d = historyDays[dayIdx - k];
+            if (d) sum7 += (d.morning + d.evening + d.emom);
+          }
+          pointsData.push({
+            dayIdx,
+            mmdd: historyDays[dayIdx].mmdd,
+            val: sum7 / 7
+          });
+        }
+
+        drawSplineChart({
+          pointsData,
+          yStep: 5,
+          minYMax: 35,
+          gridLayerId: 'rolling-grid-layer',
+          areaPathId: 'rolling-area-path',
+          linePathId: 'rolling-line-path',
+          dotsLayerId: 'rolling-dots-layer',
+          xlabelsLayerId: 'rolling-xlabels-layer',
+          dotColor: '#00F0FF'
+        });
+      }
+
+      // 6. Compute & Render Personal Records (Best Single Set, Best Session, Best Day, Bestes EMOM)
+      function renderPersonalRecords() {
+        const bestSingleSet = Math.max(
+          20,
+          ...todayMorningSets,
+          ...todayEveningSets,
+          ...historyDays.map(d => d.bestSet || 0)
+        );
+
+        let bestSession = 45;
+        let bestDay = 68;
+        let bestEmom = 0;
+
+        historyDays.forEach(d => {
+          const maxSess = Math.max(d.morning, d.evening);
+          if (maxSess > bestSession) bestSession = maxSess;
+
+          const dayTotal = d.morning + d.evening + d.emom;
+          if (dayTotal > bestDay) bestDay = dayTotal;
+
+          if (d.emom > bestEmom) bestEmom = d.emom;
+        });
+
+        document.getElementById('pr-best-single-set').textContent = bestSingleSet > 0 ? bestSingleSet : '—';
+        document.getElementById('pr-best-session').textContent = bestSession > 0 ? bestSession : '—';
+        document.getElementById('pr-best-day').textContent = bestDay > 0 ? bestDay : '—';
+        document.getElementById('pr-best-emom').textContent = bestEmom > 0 ? bestEmom : '—';
+      }
+
+      // Toggle Edit / Done on Selected Day in Stats
+      btnToggleDayEdit.addEventListener('click', () => {
+        isDayEditMode = !isDayEditMode;
+        if (isDayEditMode) {
+          btnToggleDayEdit.textContent = 'Done';
+          btnToggleDayEdit.className = 'px-2.5 py-1 rounded-lg bg-laser-orange text-white text-[11px] font-bold tap-btn';
+          dayReadonlyView.classList.add('hidden');
+          dayEditView.classList.remove('hidden');
+        } else {
+          btnToggleDayEdit.textContent = 'Edit';
+          btnToggleDayEdit.className = 'px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[11px] font-bold text-slate-200 tap-btn';
+          dayEditView.classList.add('hidden');
+          dayReadonlyView.classList.remove('hidden');
+        }
+      });
+
+      // Stepper buttons inside Past-Day Editor
+      document.querySelectorAll('.day-edit-step').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const field = btn.getAttribute('data-field');
+          const delta = parseInt(btn.getAttribute('data-delta'), 10);
+          const targetDay = historyDays[selectedDayIndex];
+
+          targetDay[field] = Math.max(0, targetDay[field] + delta);
+
+          // If editing Today (Oct 28), keep Today tab sets in sync
+          if (selectedDayIndex === TODAY_INDEX) {
+            if (field === 'morning') {
+              todayMorningSets = [targetDay.morning, 0, 0];
+            } else if (field === 'evening') {
+              todayEveningSets = [targetDay.evening, 0, 0];
+            }
+            renderTodaySessions();
+          }
+
+          renderStatsAndHeatmap();
+        });
+      });
+
+      // Range Filter Buttons (7D | 30D | 90D | All)
+      document.querySelectorAll('.range-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentChartRange = btn.getAttribute('data-range');
+          document.querySelectorAll('.range-btn').forEach(b => {
+            b.className = 'range-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white tap-btn';
+          });
+          btn.className = 'range-btn px-2.5 py-1 rounded-lg bg-white/10 text-white tap-btn';
+          renderStatsAndHeatmap();
+        });
+      });
+
+      // ===================================================================
+      // 4. TAB 2 ("EMOM") — 60FPS SVG MORPH & ONE-WAY "SATZ FERTIG" ENGINE
+      // ===================================================================
+      const TOTAL_RING_LEN = 2 * Math.PI * 176; // 1105.84px
+      const ICON_ARC_LEN = (240 / 360) * TOTAL_RING_LEN; // 737.23px (12 o'clock to 8 o'clock)
+      const PLANK_TOTAL_LEN = 359.68; // Length of M 103.58 344 L 304 220 L 304 344
+
+      const emomRing = document.getElementById('emom-ring');
+      const plankPath = document.getElementById('plank-path');
+      const headNode = document.getElementById('head-node');
+      const floorLine = document.getElementById('floor-line');
+      const centerSecondsGroup = document.getElementById('center-seconds-group');
+      const centerSecondsText = document.getElementById('center-seconds-text');
+
+      const gradStop1 = document.getElementById('grad-stop-1');
+      const gradStop2 = document.getElementById('grad-stop-2');
+      const gradStop3 = document.getElementById('grad-stop-3');
+      const ambientGlow = document.getElementById('ambient-glow');
+
+      const setupControls = document.getElementById('setup-controls');
+      const workoutControls = document.getElementById('workout-controls');
+      const repsDisplay = document.getElementById('reps-display');
+      const minsDisplay = document.getElementById('mins-display');
+      const btnEndless = document.getElementById('btn-endless');
+      const restDisplay = document.getElementById('rest-display');
+
+      const liveRoundText = document.getElementById('live-round-text');
+      const livePhaseLabel = document.getElementById('live-phase-label');
+      const liveTargetText = document.getElementById('live-target-text');
+      const btnSetDone = document.getElementById('btn-set-done');
+      const setDoneText = document.getElementById('set-done-text');
+
+      let repsPerMin = 15;
+      let durationMins = 10;
+      let isEndless = false;
+      let restEveryN = 0;
+
+      let state = 'SETUP'; // 'SETUP' | 'MORPHING' | 'RUNNING' | 'RECHARGING'
+      let morphProgress = 0;
+      let currentRound = 1;
+      let setDoneForCurrentMinute = false;
+      let timeRemaining = 60.0;
+
+      let animFrame = null;
+      let lastTimestamp = 0;
+
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+      function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+      }
+
+      function isRestSetMinute(roundNumber) {
+        return restEveryN >= 2 && roundNumber % restEveryN === 0;
+      }
+
+      function setPlankInteriorLocked(locked) {
+        const displayVal = locked ? 'none' : 'block';
+        const visibilityVal = locked ? 'hidden' : 'visible';
+        plankPath.style.display = displayVal;
+        plankPath.style.visibility = visibilityVal;
+        headNode.style.display = displayVal;
+        headNode.style.visibility = visibilityVal;
+        floorLine.style.display = displayVal;
+        floorLine.style.visibility = visibilityVal;
+      }
+
+      function setColorTheme(mode) {
+        if (mode === 'REST') {
+          gradStop1.setAttribute('stop-color', '#00F0FF');
+          gradStop2.setAttribute('stop-color', '#00A8FF');
+          gradStop3.setAttribute('stop-color', '#0066FF');
+          ambientGlow.className = 'absolute top-6 left-1/2 -translate-x-1/2 w-[280px] h-[280px] rounded-full bg-cyber-cyan/15 blur-[75px] pointer-events-none transition-colors duration-500';
+        } else {
+          gradStop1.setAttribute('stop-color', '#FF8800');
+          gradStop2.setAttribute('stop-color', '#FF4D00');
+          gradStop3.setAttribute('stop-color', '#FF2A00');
+          ambientGlow.className = 'absolute top-6 left-1/2 -translate-x-1/2 w-[280px] h-[280px] rounded-full bg-laser-orange/10 blur-[75px] pointer-events-none transition-colors duration-500';
+        }
+      }
+
+      function syncSetupUI() {
+        repsDisplay.textContent = repsPerMin;
+
+        if (isEndless) {
+          minsDisplay.textContent = '∞';
+          btnEndless.className = 'px-2.5 py-1 rounded-lg text-xs font-bold border border-laser-orange/50 bg-laser-orange/20 text-laser-amber tap-btn';
+        } else {
+          minsDisplay.textContent = `${durationMins} Min`;
+          btnEndless.className = 'px-2.5 py-1 rounded-lg text-xs font-bold border border-white/10 bg-white/5 text-slate-400 tap-btn';
+        }
+
+        if (restEveryN === 0) {
+          restDisplay.textContent = 'Aus';
+          restDisplay.className = 'w-24 text-center font-bold text-sm text-slate-400 tabular-nums';
+        } else {
+          restDisplay.textContent = `Jede ${restEveryN}. Min`;
+          restDisplay.className = 'w-24 text-center font-bold text-sm text-cyber-cyan tabular-nums';
+        }
+      }
+
+      // Sync Active Workout UI — When "Satz fertig" is clicked, it becomes greyed out & disabled for the rest of the minute!
+      function syncWorkoutUI() {
+        liveRoundText.textContent = isEndless ? `Runde ${currentRound}` : `Runde ${currentRound} / ${durationMins}`;
+
+        if (isRestSetMinute(currentRound)) {
+          setColorTheme('REST');
+          livePhaseLabel.textContent = 'Rest-Set';
+          livePhaseLabel.className = 'text-[11px] font-semibold uppercase tracking-wider text-cyber-cyan block';
+          liveTargetText.textContent = 'Pause';
+          btnSetDone.disabled = true;
+          btnSetDone.className = 'w-full h-[54px] rounded-2xl bg-white/[0.04] border border-white/[0.07] text-slate-500 font-bold text-sm tracking-wide flex items-center justify-center gap-2 cursor-not-allowed opacity-50';
+          setDoneText.textContent = 'Rest-Set Pause aktiv';
+        } else if (setDoneForCurrentMinute) {
+          setColorTheme('REST');
+          livePhaseLabel.textContent = 'Pause bis nächste Min';
+          livePhaseLabel.className = 'text-[11px] font-semibold uppercase tracking-wider text-cyber-cyan block';
+          liveTargetText.textContent = `${repsPerMin} ✓`;
+          // Greyed out & locked — cannot toggle back to "Weiterarbeiten"
+          btnSetDone.disabled = true;
+          btnSetDone.className = 'w-full h-[54px] rounded-2xl bg-white/[0.04] border border-white/[0.07] text-slate-500 font-bold text-sm tracking-wide flex items-center justify-center gap-2 cursor-not-allowed opacity-50';
+          setDoneText.textContent = 'Satz fertig ✓';
+        } else {
+          setColorTheme('WORK');
+          livePhaseLabel.textContent = 'Ziel';
+          livePhaseLabel.className = 'text-[11px] font-semibold uppercase tracking-wider text-laser-amber block';
+          liveTargetText.textContent = `${repsPerMin} Push-Ups`;
+          btnSetDone.disabled = false;
+          btnSetDone.className = 'w-full h-[54px] rounded-2xl bg-cyber-cyan/15 border border-cyber-cyan/40 text-cyber-cyan font-bold text-sm tracking-wide flex items-center justify-center gap-2 tap-btn';
+          setDoneText.textContent = 'Satz fertig';
+        }
+      }
+
+      function renderMorph(p) {
+        morphProgress = Math.max(0, Math.min(1, p));
+
+        if (morphProgress >= 0.999) {
+          setPlankInteriorLocked(true);
+        } else {
+          setPlankInteriorLocked(false);
+
+          const floorT = Math.min(1, morphProgress / 0.4);
+          floorLine.style.opacity = (1 - easeInOutCubic(floorT)).toFixed(3);
+
+          const plankT = Math.min(1, morphProgress / 0.55);
+          const remLen = Math.max(0, PLANK_TOTAL_LEN * (1 - easeInOutCubic(plankT)));
+          plankPath.setAttribute('stroke-dasharray', `${remLen.toFixed(2)} ${PLANK_TOTAL_LEN}`);
+          plankPath.setAttribute('stroke-linecap', remLen < 4 ? 'butt' : 'round');
+          plankPath.style.opacity = remLen < 2 ? '0' : '1';
+
+          const headT = easeInOutCubic(Math.min(1, morphProgress / 0.45));
+          headNode.setAttribute('cx', (352 + (304 - 352) * headT).toFixed(2));
+          headNode.setAttribute('cy', (190 + (220 - 190) * headT).toFixed(2));
+          headNode.setAttribute('r', Math.max(0, 22 * (1 - headT)).toFixed(2));
+          headNode.style.opacity = (1 - headT).toFixed(3);
+        }
+
+        const ringRaw = Math.max(0, Math.min(1, (morphProgress - 0.18) / 0.65));
+        const ringEased = easeInOutCubic(ringRaw);
+        const currentArc = ICON_ARC_LEN + ringEased * (TOTAL_RING_LEN - ICON_ARC_LEN);
+        emomRing.setAttribute('stroke-dasharray', `${currentArc.toFixed(2)} ${TOTAL_RING_LEN.toFixed(2)}`);
+
+        const secRaw = Math.max(0, Math.min(1, (morphProgress - 0.45) / 0.55));
+        const secEased = easeOutCubic(secRaw);
+        centerSecondsGroup.setAttribute('opacity', secEased.toFixed(3));
+        centerSecondsGroup.setAttribute('transform', `scale(${(0.88 + 0.12 * secEased).toFixed(3)})`);
+        centerSecondsText.textContent = '60';
+      }
+
+      function renderCountdown() {
+        setPlankInteriorLocked(true);
+        const fraction = Math.max(0, Math.min(1, timeRemaining / 60));
+        const arcLen = fraction * TOTAL_RING_LEN;
+        emomRing.setAttribute('stroke-dasharray', `${arcLen.toFixed(2)} ${TOTAL_RING_LEN.toFixed(2)}`);
+
+        const displaySecs = Math.max(1, Math.ceil(timeRemaining));
+        centerSecondsText.textContent = displaySecs.toString();
+      }
+
+      function cancelLoop() {
+        if (animFrame) {
+          cancelAnimationFrame(animFrame);
+          animFrame = null;
+        }
+      }
+
+      function startWorkout() {
+        cancelLoop();
+        state = 'MORPHING';
+        currentRound = 1;
+        setDoneForCurrentMinute = false;
+        timeRemaining = 60.0;
+
+        setupControls.classList.add('hidden');
+        workoutControls.classList.remove('hidden');
+        syncWorkoutUI();
+
+        const startTime = performance.now();
+        const duration = 750;
+
+        function morphStep(now) {
+          const t = Math.min(1, (now - startTime) / duration);
+          renderMorph(t);
+          if (t < 1) {
+            animFrame = requestAnimationFrame(morphStep);
+          } else {
+            setPlankInteriorLocked(true);
+            startCountdownLoop();
+          }
+        }
+        animFrame = requestAnimationFrame(morphStep);
+      }
+
+      function startCountdownLoop() {
+        cancelLoop();
+        setPlankInteriorLocked(true);
+        state = 'RUNNING';
+        lastTimestamp = performance.now();
+
+        function tick(now) {
+          const dt = (now - lastTimestamp) / 1000;
+          lastTimestamp = now;
+          timeRemaining -= dt;
+
+          if (timeRemaining <= 0) {
+            handleMinuteFinished();
+          } else {
+            renderCountdown();
+            animFrame = requestAnimationFrame(tick);
+          }
+        }
+        animFrame = requestAnimationFrame(tick);
+      }
+
+      function handleMinuteFinished() {
+        cancelLoop();
+        setPlankInteriorLocked(true);
+
+        if (!isEndless && currentRound >= durationMins) {
+          stopAndReverseMorph();
+          return;
+        }
+
+        currentRound++;
+        setDoneForCurrentMinute = false;
+        timeRemaining = 60.0;
+        centerSecondsText.textContent = '60';
+        syncWorkoutUI();
+
+        state = 'RECHARGING';
+        const startTime = performance.now();
+        const duration = 320;
+
+        function rechargeStep(now) {
+          setPlankInteriorLocked(true);
+          const t = Math.min(1, (now - startTime) / duration);
+          const arcLen = easeOutCubic(t) * TOTAL_RING_LEN;
+          emomRing.setAttribute('stroke-dasharray', `${arcLen.toFixed(2)} ${TOTAL_RING_LEN.toFixed(2)}`);
+
+          if (t < 1) {
+            animFrame = requestAnimationFrame(rechargeStep);
+          } else {
+            startCountdownLoop();
+          }
+        }
+        animFrame = requestAnimationFrame(rechargeStep);
+      }
+
+      function stopAndReverseMorph() {
+        cancelLoop();
+        state = 'MORPHING';
+        setColorTheme('WORK');
+        workoutControls.classList.add('hidden');
+        setupControls.classList.remove('hidden');
+
+        const startTime = performance.now();
+        const duration = 600;
+
+        function reverseStep(now) {
+          const t = Math.min(1, (now - startTime) / duration);
+          renderMorph(1 - t);
+          if (t < 1) {
+            animFrame = requestAnimationFrame(reverseStep);
+          } else {
+            state = 'SETUP';
+            renderMorph(0);
+          }
+        }
+        animFrame = requestAnimationFrame(reverseStep);
+      }
+
+      // Setup Controls Event Listeners
+      document.getElementById('reps-minus').addEventListener('click', () => {
+        repsPerMin = Math.max(1, repsPerMin - 1);
+        syncSetupUI();
+      });
+      document.getElementById('reps-plus').addEventListener('click', () => {
+        repsPerMin = Math.min(100, repsPerMin + 1);
+        syncSetupUI();
+      });
+
+      document.getElementById('mins-minus').addEventListener('click', () => {
+        isEndless = false;
+        durationMins = Math.max(1, durationMins - 1);
+        syncSetupUI();
+      });
+      document.getElementById('mins-plus').addEventListener('click', () => {
+        isEndless = false;
+        durationMins = Math.min(60, durationMins + 1);
+        syncSetupUI();
+      });
+      btnEndless.addEventListener('click', () => {
+        isEndless = !isEndless;
+        syncSetupUI();
+      });
+
+      document.getElementById('rest-minus').addEventListener('click', () => {
+        if (restEveryN <= 2) {
+          restEveryN = 0;
+        } else {
+          restEveryN--;
+        }
+        syncSetupUI();
+      });
+      document.getElementById('rest-plus').addEventListener('click', () => {
+        if (restEveryN === 0) {
+          restEveryN = 2;
+        } else {
+          restEveryN = Math.min(15, restEveryN + 1);
+        }
+        syncSetupUI();
+      });
+
+      document.getElementById('btn-start').addEventListener('click', startWorkout);
+      document.getElementById('svg-stage').addEventListener('click', () => {
+        if (state === 'SETUP') startWorkout();
+      });
+
+      // One-Way "Satz fertig" Button: Locks & greys out once pressed, adds reps to Today's EMOM log
+      btnSetDone.addEventListener('click', () => {
+        if (setDoneForCurrentMinute || isRestSetMinute(currentRound)) return;
+        setDoneForCurrentMinute = true;
+        historyDays[TODAY_INDEX].emom += repsPerMin;
+        renderStatsAndHeatmap();
+        syncWorkoutUI();
+      });
+
+      document.getElementById('btn-stop').addEventListener('click', stopAndReverseMorph);
+
+      // ===================================================================
+      // 5. 3-TAB NAVIGATION (Today | EMOM | Stats)
+      // ===================================================================
+      const appTopBar = document.getElementById('app-top-bar');
+      const tabs = {
+        today: document.getElementById('tab-today'),
+        emom: document.getElementById('tab-emom'),
+        stats: document.getElementById('tab-stats')
+      };
+      const navs = {
+        today: document.getElementById('nav-today'),
+        emom: document.getElementById('nav-emom'),
+        stats: document.getElementById('nav-stats')
+      };
+
+      function switchTab(target) {
+        // Show top date/streak bar on Today & Stats; keep EMOM clean so the icon dominates
+        if (target === 'emom') {
+          appTopBar.classList.add('hidden');
+          appTopBar.classList.remove('flex');
+        } else {
+          appTopBar.classList.remove('hidden');
+          appTopBar.classList.add('flex');
+        }
+
+        Object.keys(tabs).forEach(key => {
+          if (key === target) {
+            tabs[key].classList.remove('hidden');
+            tabs[key].classList.add('flex');
+            navs[key].className = 'flex flex-col items-center gap-1 text-laser-orange tap-btn';
+          } else {
+            tabs[key].classList.add('hidden');
+            tabs[key].classList.remove('flex');
+            navs[key].className = 'flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 tap-btn';
+          }
+        });
+      }
+
+      navs.today.addEventListener('click', () => switchTab('today'));
+      navs.emom.addEventListener('click', () => switchTab('emom'));
+      navs.stats.addEventListener('click', () => switchTab('stats'));
+
+      // Initialize all views
+      syncSetupUI();
+      renderMorph(0);
+      renderTodaySessions();
+      renderStatsAndHeatmap();
+    })();
+  </script>
+</body>
+</html>
