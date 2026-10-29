@@ -543,6 +543,8 @@
   // 8. TAB NAVIGATION
   // ============================================================
   const appTopBar = document.getElementById('app-top-bar');
+  const mainViewport = document.querySelector('main');
+  const tabScrollMap = { today: 0, emom: 0, stats: 0 };
   const tabs = {
     today: document.getElementById('tab-today'),
     emom:  document.getElementById('tab-emom'),
@@ -555,6 +557,9 @@
   };
 
   function switchTab(target) {
+    if (mainViewport && AppState.currentTab) {
+      tabScrollMap[AppState.currentTab] = mainViewport.scrollTop;
+    }
     AppState.currentTab = target;
     if (target === 'emom') {
       appTopBar.classList.add('hidden');
@@ -574,6 +579,16 @@
         navBtns[key].className = 'flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 tap-btn';
       }
     });
+
+    if (mainViewport) {
+      // EMOM is a single-screen hero timer: always ensure scrollTop is reset to 0 so the timer is immediately visible
+      const scrollPos = target === 'emom' ? 0 : (tabScrollMap[target] || 0);
+      mainViewport.scrollTop = scrollPos;
+      requestAnimationFrame(() => {
+        mainViewport.scrollTop = scrollPos;
+      });
+    }
+
     if (target === 'stats') {
       renderStatsAndHeatmap();
     }
