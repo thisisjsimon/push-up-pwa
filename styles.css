@@ -1412,3 +1412,94 @@ main {
 .emom-btn-abort {
   margin-top: var(--spacing-xs);
 }
+
+/* ============================================================
+   Desktop iPhone 16 Pro Frame
+   Only active on actual desktop viewports (>= 768px wide AND >= 750px high)
+   ============================================================ */
+.desktop-status-bar {
+  display: none;
+}
+.mobile-safe-top {
+  display: block;
+}
+.desktop-home-indicator {
+  display: none;
+}
+
+@media (min-width: 768px) and (min-height: 750px) {
+  body {
+    padding: 1.5rem !important;
+  }
+  .device-frame {
+    width: 393px !important;
+    height: 852px !important;
+    max-height: 852px !important;
+    border-radius: 54px !important;
+    border: 10px solid #1B202C !important;
+    box-shadow: 0 0 0 1px #090B10, 0 30px 90px rgba(0,0,0,0.9) !important;
+  }
+  .desktop-status-bar {
+    display: flex !important;
+  }
+  .mobile-safe-top {
+    display: none !important;
+  }
+  .desktop-home-indicator {
+    display: block !important;
+  }
+  #modal-overlay {
+    align-items: center !important;
+  }
+  #modal-content {
+    width: 360px !important;
+    border-radius: 28px !important;
+    padding-bottom: 1.5rem !important;
+  }
+}
+
+/* ============================================================
+   Mobile Landscape-Lock via CSS Rotation (Variante B)
+   When smartphone is turned to landscape (height <= 600px),
+   lock app virtually in portrait mode via 90deg / -90deg rotation
+   ============================================================ */
+@media (orientation: landscape) and (max-height: 600px) {
+  html, body {
+    overflow: hidden !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .device-frame {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: 100vh !important;
+    width: 100dvh !important;
+    height: 100vw !important;
+    height: 100dvw !important;
+    max-width: none !important;
+    max-height: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    transform-origin: center center !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+  }
+  body.landscape-rot-neg .device-frame {
+    transform: translate(-50%, -50%) rotate(-90deg) !important;
+  }
+  body.landscape-rot-pos .device-frame {
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+  }
+  .desktop-status-bar {
+    display: none !important;
+  }
+  .mobile-safe-top {
+    display: block !important;
+  }
+  .desktop-home-indicator {
+    display: none !important;
+  }
+}

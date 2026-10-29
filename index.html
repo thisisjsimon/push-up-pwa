@@ -71,8 +71,8 @@
 
     /* Toast Notifications */
     #toast-container {
-      position: fixed;
-      bottom: 100px;
+      position: absolute;
+      bottom: 84px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 9999;
@@ -105,20 +105,111 @@
     .toast.success { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3); }
     .toast.error   { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); }
     .toast.info    { background: rgba(255,136,0,0.12); border-color: rgba(255,136,0,0.25); }
+
+    /* ============================================================
+       Desktop iPhone 16 Pro Frame
+       Only active on actual desktop viewports (>= 768px wide AND >= 750px high)
+       ============================================================ */
+    .desktop-status-bar {
+      display: none;
+    }
+    .mobile-safe-top {
+      display: block;
+    }
+    .desktop-home-indicator {
+      display: none;
+    }
+
+    @media (min-width: 768px) and (min-height: 750px) {
+      body {
+        padding: 1.5rem !important;
+      }
+      .device-frame {
+        width: 393px !important;
+        height: 852px !important;
+        max-height: 852px !important;
+        border-radius: 54px !important;
+        border: 10px solid #1B202C !important;
+        box-shadow: 0 0 0 1px #090B10, 0 30px 90px rgba(0,0,0,0.9) !important;
+      }
+      .desktop-status-bar {
+        display: flex !important;
+      }
+      .mobile-safe-top {
+        display: none !important;
+      }
+      .desktop-home-indicator {
+        display: block !important;
+      }
+      #modal-overlay {
+        align-items: center !important;
+      }
+      #modal-content {
+        width: 360px !important;
+        border-radius: 28px !important;
+        padding-bottom: 1.5rem !important;
+      }
+    }
+
+    /* ============================================================
+       Mobile Landscape-Lock via CSS Rotation (Variante B)
+       When smartphone is turned to landscape (height <= 600px),
+       lock app virtually in portrait mode via 90deg / -90deg rotation
+       ============================================================ */
+    @media (orientation: landscape) and (max-height: 600px) {
+      html, body {
+        overflow: hidden !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .device-frame {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        width: 100vh !important;
+        width: 100dvh !important;
+        height: 100vw !important;
+        height: 100dvw !important;
+        max-width: none !important;
+        max-height: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        transform-origin: center center !important;
+        transform: translate(-50%, -50%) rotate(90deg) !important;
+      }
+      body.landscape-rot-neg .device-frame {
+        transform: translate(-50%, -50%) rotate(-90deg) !important;
+      }
+      body.landscape-rot-pos .device-frame {
+        transform: translate(-50%, -50%) rotate(90deg) !important;
+      }
+      .desktop-status-bar {
+        display: none !important;
+      }
+      .mobile-safe-top {
+        display: block !important;
+      }
+      .desktop-home-indicator {
+        display: none !important;
+      }
+    }
   </style>
 </head>
-<body class="bg-[#040508] text-white font-sans min-h-screen flex items-center justify-center p-0 sm:p-6 select-none overflow-hidden">
+<body class="bg-[#040508] text-white font-sans min-h-screen flex items-center justify-center p-0 select-none overflow-hidden">
 
   <!-- ===================================================================== -->
   <!-- IPHONE 16 PRO FRAME (Full-screen on Mobile, Framed on Desktop)        -->
   <!-- ===================================================================== -->
-  <div class="relative w-full sm:w-[393px] h-screen h-[100dvh] sm:h-[852px] bg-app-bg sm:rounded-[54px] sm:border-[10px] sm:border-[#1B202C] sm:shadow-[0_0_0_1px_#090B10,0_30px_90px_rgba(0,0,0,0.9)] flex flex-col justify-between overflow-hidden">
+  <div id="app-device-frame" class="device-frame relative w-full h-screen h-[100dvh] bg-app-bg flex flex-col justify-between overflow-hidden">
 
     <!-- Subtle Ambient Top Glow -->
     <div id="ambient-glow" class="absolute top-6 left-1/2 -translate-x-1/2 w-[280px] h-[280px] rounded-full bg-laser-orange/10 blur-[75px] pointer-events-none transition-colors duration-500"></div>
 
     <!-- iOS Status Bar + Dynamic Island (Desktop Frame only) -->
-    <div class="hidden sm:flex relative z-20 pt-3 pb-1 px-7 items-center justify-between text-[12px] font-semibold tracking-tight text-white/80 shrink-0">
+    <div class="desktop-status-bar relative z-20 pt-3 pb-1 px-7 items-center justify-between text-[12px] font-semibold tracking-tight text-white/80 shrink-0">
       <span id="status-bar-time" class="tabular-nums">09:41</span>
       <div class="flex items-center justify-center w-[108px] h-[28px] bg-black rounded-full border border-white/5"></div>
       <div class="flex items-center gap-1.5 text-white/80">
@@ -130,7 +221,7 @@
     </div>
 
     <!-- Native iOS Safe Area Top Spacer (Mobile only: clears Apple's native clock, battery & Dynamic Island) -->
-    <div class="sm:hidden w-full shrink-0 pointer-events-none" style="height: max(env(safe-area-inset-top, 0px), 16px);"></div>
+    <div class="mobile-safe-top w-full shrink-0 pointer-events-none" style="height: max(env(safe-area-inset-top, 0px), 16px);"></div>
 
     <!-- =================================================================== -->
     <!-- PERSISTENT APP HEADER (Shown on Today & Stats, hidden on EMOM Hero) -->
@@ -231,6 +322,19 @@
       <!-- TAB 2 (CENTER): EMOM — 1:1 HERO ICON MORPH TIMER                  -->
       <!-- ================================================================= -->
       <div id="tab-emom" class="flex-1 flex flex-col justify-between">
+
+        <!-- EMOM Header Controls (Mute Toggle) -->
+        <div class="flex items-center justify-end px-1 pt-1 pb-1 shrink-0">
+          <button id="btn-sound-toggle-emom" class="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] flex items-center justify-center text-slate-300 tap-btn transition-colors" title="Ton stummschalten" aria-label="Ton stummschalten">
+            <svg id="sound-icon-on-emom" class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/>
+            </svg>
+            <svg id="sound-icon-off-emom" class="w-4 h-4 text-rose-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+            </svg>
+          </button>
+        </div>
 
         <!-- HERO: FLOATING SVG ICON / 60s TIMER -->
         <div class="flex-1 flex items-center justify-center my-auto">
@@ -668,35 +772,35 @@
       </button>
 
       <!-- iOS Home Indicator (Desktop Frame only) -->
-      <div class="hidden sm:block absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 rounded-full bg-white/20 pointer-events-none"></div>
+      <div class="desktop-home-indicator absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 rounded-full bg-white/20 pointer-events-none"></div>
     </nav>
 
-  </div>
+    <!-- Toast Container -->
+    <div id="toast-container" aria-live="polite"></div>
 
-  <!-- Toast Container -->
-  <div id="toast-container" aria-live="polite"></div>
-
-  <!-- Settings Modal -->
-  <div id="modal-overlay" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center" aria-modal="true" role="dialog">
-    <div id="modal-content" class="w-full sm:w-[360px] bg-app-card rounded-t-[32px] sm:rounded-[28px] border border-app-border p-6 pb-10 sm:pb-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-5">
-        <h3 id="modal-title" class="text-lg font-extrabold text-white">Settings</h3>
-        <button id="btn-close-modal" class="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 flex items-center justify-center text-slate-300 text-sm font-bold tap-btn" aria-label="Close">✕</button>
-      </div>
-      <div id="modal-body" class="space-y-3">
-        <button id="btn-export-data" class="w-full h-12 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-sm font-semibold text-white flex items-center justify-center tap-btn">
-          Export Data (JSON)
-        </button>
-        <label class="w-full h-12 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-sm font-semibold text-white flex items-center justify-center tap-btn cursor-pointer">
-          Import Data (JSON)
-          <input type="file" id="input-import-data" accept=".json" class="hidden">
-        </label>
-        <button id="btn-clear-data" class="w-full h-12 rounded-2xl bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/25 text-sm font-semibold text-rose-400 flex items-center justify-center tap-btn">
-          Clear All Data
-        </button>
-        <p class="text-center text-[11px] text-slate-500 pt-2">Push-Up Discipline PWA · Stay hard.</p>
+    <!-- Settings Modal -->
+    <div id="modal-overlay" class="absolute inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-end justify-center" aria-modal="true" role="dialog">
+      <div id="modal-content" class="w-full bg-app-card rounded-t-[32px] border border-app-border p-6 pb-10 shadow-2xl">
+        <div class="flex items-center justify-between mb-5">
+          <h3 id="modal-title" class="text-lg font-extrabold text-white">Settings</h3>
+          <button id="btn-close-modal" class="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 flex items-center justify-center text-slate-300 text-sm font-bold tap-btn" aria-label="Close">✕</button>
+        </div>
+        <div id="modal-body" class="space-y-3">
+          <button id="btn-export-data" class="w-full h-12 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-sm font-semibold text-white flex items-center justify-center tap-btn">
+            Export Data (JSON)
+          </button>
+          <label class="w-full h-12 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-sm font-semibold text-white flex items-center justify-center tap-btn cursor-pointer">
+            Import Data (JSON)
+            <input type="file" id="input-import-data" accept=".json" class="hidden">
+          </label>
+          <button id="btn-clear-data" class="w-full h-12 rounded-2xl bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/25 text-sm font-semibold text-rose-400 flex items-center justify-center tap-btn">
+            Clear All Data
+          </button>
+          <p class="text-center text-[11px] text-slate-500 pt-2">Push-Up Discipline PWA · Stay hard.</p>
+        </div>
       </div>
     </div>
+
   </div>
 
   <script src="app.js"></script>

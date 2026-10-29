@@ -278,9 +278,11 @@
         return { current: 0, longest: 0, lastDate: null };
       }
       const validWorkouts = allWorkouts.filter(w => {
-        const mHasReps = w.morning?.sets?.some(s => s.reps > 0);
-        const eHasReps = w.evening?.sets?.some(s => s.reps > 0);
-        return mHasReps && eHasReps;
+        const morningSets = (w.morning?.sets || []).filter(s => (Number(s.reps) || 0) > 0).length;
+        const eveningSets = (w.evening?.sets || []).filter(s => (Number(s.reps) || 0) > 0).length;
+        const emomRounds = (w.emom || []).reduce((sum, e) => sum + (Number(e.completedRounds) || 0), 0);
+        const totalSets = morningSets + eveningSets + emomRounds;
+        return totalSets >= 3;
       }).sort((a, b) => a.date.localeCompare(b.date));
 
       if (validWorkouts.length === 0) return { current: 0, longest: 0, lastDate: null };
@@ -342,6 +344,7 @@
     todayData: null,
     todayStr: '',
     streak: { current: 0, longest: 0, lastDate: null },
+    soundEnabled: localStorage.getItem('pushup_sound_enabled') !== '0',
     currentTab: 'emom',
     currentChartRange: '7',
     selectedDayDate: '',   // YYYY-MM-DD string
@@ -353,6 +356,178 @@
     editDayEvening: 0,
     editDayEmom: 0
   };
+
+  // ============================================================
+  // 6B. AUDIO MANAGER (Web Audio API Countdown & Cues)
+  // ============================================================
+  const AudioManager = {
+    ctx: null,
+
+    init() {
+      if (!this.ctx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          this.ctx = new AudioContextClass();
+        }
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+    },
+
+    unlock() {
+      this.init();
+      if (this.ctx) {
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+        try {
+          const buffer = this.ctx.createBuffer(1, 1, 22050);
+          const source = this.ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(this.ctx.destination);
+          source.start(0);
+        } catch (_) {}
+      }
+    },
+
+    playCountdownPip() {
+      if (!AppState.soundEnabled) return;
+      this.init();
+      if (!this.ctx) return;
+      try {
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.28, now + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.085);
+      } catch (_) {}
+    },
+
+    playRoundChangeBoop() {
+      if (!AppState.soundEnabled) return;
+      this.init();
+      if (!this.ctx) return;
+      try {
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.35, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.285);
+      } catch (_) {}
+    },
+
+    playStartSound() {
+      if (!AppState.soundEnabled) return;
+      this.init();
+      if (!this.ctx) return;
+      try {
+        const now = this.ctx.currentTime;
+
+        // Tone 1: 659.25 Hz (E5) - quick intro tone
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(659.25, now);
+        gain1.gain.setValueAtTime(0.0001, now);
+        gain1.gain.linearRampToValueAtTime(0.28, now + 0.006);
+        gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+        osc1.connect(gain1);
+        gain1.connect(this.ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.095);
+
+        // Tone 2: 880 Hz (A5) - energetic high start beep
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(880, now + 0.10);
+        gain2.gain.setValueAtTime(0.0001, now + 0.10);
+        gain2.gain.linearRampToValueAtTime(0.35, now + 0.108);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(now + 0.10);
+        osc2.stop(now + 0.355);
+      } catch (_) {}
+    }
+  };
+
+  function setSoundEnabled(enabled, showToast = true) {
+    AppState.soundEnabled = enabled;
+    try {
+      localStorage.setItem('pushup_sound_enabled', enabled ? '1' : '0');
+    } catch (_) {}
+    updateSoundUI();
+    if (showToast) {
+      Toast.show(enabled ? 'Ton aktiviert 🔊' : 'Ton stummgeschaltet 🔇', 'info', 1600);
+    }
+  }
+
+  function updateSoundUI() {
+    const enabled = AppState.soundEnabled;
+    const onIcon = document.getElementById('sound-icon-on-emom');
+    const offIcon = document.getElementById('sound-icon-off-emom');
+    const btn = document.getElementById('btn-sound-toggle-emom');
+    if (onIcon && offIcon) {
+      if (enabled) {
+        onIcon.classList.remove('hidden');
+        offIcon.classList.add('hidden');
+      } else {
+        onIcon.classList.add('hidden');
+        offIcon.classList.remove('hidden');
+      }
+    }
+    if (btn) {
+      btn.title = enabled ? 'Ton stummschalten' : 'Ton aktivieren';
+      btn.setAttribute('aria-label', btn.title);
+    }
+  }
+
+  function handleOrientationChange() {
+    let angle = 0;
+    if (window.screen && window.screen.orientation && typeof window.screen.orientation.angle === 'number') {
+      angle = window.screen.orientation.angle;
+    } else if (typeof window.orientation === 'number') {
+      angle = window.orientation;
+    }
+
+    if (angle === 270 || angle === -90) {
+      document.body.classList.add('landscape-rot-neg');
+      document.body.classList.remove('landscape-rot-pos');
+    } else {
+      document.body.classList.add('landscape-rot-pos');
+      document.body.classList.remove('landscape-rot-neg');
+    }
+  }
+
+  window.addEventListener('orientationchange', handleOrientationChange);
+  if (window.screen && window.screen.orientation) {
+    window.screen.orientation.addEventListener('change', handleOrientationChange);
+  }
+  window.addEventListener('resize', handleOrientationChange);
 
   // ============================================================
   // 7. STATUS BAR CLOCK
@@ -808,12 +983,17 @@
     centerSecsText.textContent = Math.max(1, Math.ceil(timeRemaining)).toString();
   }
 
+  let countdownBeeps = { 3: false, 2: false, 1: false };
+
   function cancelLoop() {
     if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
   }
 
   function startWorkout() {
+    AudioManager.unlock();
+    AudioManager.playStartSound();
     cancelLoop();
+    countdownBeeps = { 3: false, 2: false, 1: false };
     emomState = 'MORPHING';
     currentRound = 1;
     completedRounds = 0;
@@ -843,6 +1023,21 @@
       const dt = (now - lastTimestamp) / 1000;
       lastTimestamp = now;
       timeRemaining -= dt;
+
+      // Audio countdown cues: 3s, 2s, 1s remaining
+      if (timeRemaining <= 3 && !countdownBeeps[3]) {
+        countdownBeeps[3] = true;
+        AudioManager.playCountdownPip();
+      }
+      if (timeRemaining <= 2 && !countdownBeeps[2]) {
+        countdownBeeps[2] = true;
+        AudioManager.playCountdownPip();
+      }
+      if (timeRemaining <= 1 && !countdownBeeps[1]) {
+        countdownBeeps[1] = true;
+        AudioManager.playCountdownPip();
+      }
+
       if (timeRemaining <= 0) { handleMinuteFinished(); }
       else { renderCountdown(); animFrame = requestAnimationFrame(tick); }
     }
@@ -852,6 +1047,8 @@
   function handleMinuteFinished() {
     cancelLoop();
     setPlankInteriorLocked(true);
+    AudioManager.playRoundChangeBoop();
+    countdownBeeps = { 3: false, 2: false, 1: false };
     if (!isEndless && currentRound >= durationMins) {
       stopAndReverseMorph(true); // auto-finish
       return;
@@ -878,6 +1075,7 @@
   async function stopAndReverseMorph(autoFinish = false) {
     cancelLoop();
     releaseWakeLock();
+    countdownBeeps = { 3: false, 2: false, 1: false };
     emomState = 'MORPHING';
     setColorTheme('WORK');
     workoutControls.classList.add('hidden');
@@ -931,8 +1129,14 @@
   btnEndless.addEventListener('click', () => { isEndless = !isEndless; syncSetupUI(); });
   document.getElementById('rest-minus').addEventListener('click', () => { restEveryN = restEveryN <= 2 ? 0 : restEveryN-1; syncSetupUI(); });
   document.getElementById('rest-plus').addEventListener('click', () => { restEveryN = restEveryN === 0 ? 2 : Math.min(15, restEveryN+1); syncSetupUI(); });
-  document.getElementById('btn-start').addEventListener('click', startWorkout);
-  document.getElementById('svg-stage').addEventListener('click', () => { if (emomState === 'SETUP') startWorkout(); });
+  document.getElementById('btn-start').addEventListener('click', () => {
+    AudioManager.unlock();
+    startWorkout();
+  });
+  document.getElementById('svg-stage').addEventListener('click', () => {
+    AudioManager.unlock();
+    if (emomState === 'SETUP') startWorkout();
+  });
 
   btnSetDone.addEventListener('click', async () => {
     if (setDoneForCurrentMinute || isRestSetMinute(currentRound)) return;
@@ -1470,6 +1674,18 @@
     // Start clock
     updateStatusBarClock();
     setInterval(updateStatusBarClock, 30000);
+
+    // Setup sound toggle button (EMOM tab only)
+    const btnSoundEmom = document.getElementById('btn-sound-toggle-emom');
+    if (btnSoundEmom) {
+      btnSoundEmom.addEventListener('click', (e) => {
+        e.stopPropagation();
+        AudioManager.unlock();
+        setSoundEnabled(!AppState.soundEnabled);
+      });
+    }
+    updateSoundUI();
+    handleOrientationChange();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
