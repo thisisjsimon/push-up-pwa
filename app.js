@@ -506,29 +506,6 @@
     }
   }
 
-  function handleOrientationChange() {
-    let angle = 0;
-    if (window.screen && window.screen.orientation && typeof window.screen.orientation.angle === 'number') {
-      angle = window.screen.orientation.angle;
-    } else if (typeof window.orientation === 'number') {
-      angle = window.orientation;
-    }
-
-    if (angle === 270 || angle === -90) {
-      document.body.classList.add('landscape-rot-neg');
-      document.body.classList.remove('landscape-rot-pos');
-    } else {
-      document.body.classList.add('landscape-rot-pos');
-      document.body.classList.remove('landscape-rot-neg');
-    }
-  }
-
-  window.addEventListener('orientationchange', handleOrientationChange);
-  if (window.screen && window.screen.orientation) {
-    window.screen.orientation.addEventListener('change', handleOrientationChange);
-  }
-  window.addEventListener('resize', handleOrientationChange);
-
   // ============================================================
   // 7. STATUS BAR CLOCK
   // ============================================================
@@ -544,7 +521,6 @@
   // ============================================================
   const appTopBar = document.getElementById('app-top-bar');
   const mainViewport = document.querySelector('main');
-  const tabScrollMap = { today: 0, emom: 0, stats: 0 };
   const tabs = {
     today: document.getElementById('tab-today'),
     emom:  document.getElementById('tab-emom'),
@@ -557,9 +533,6 @@
   };
 
   function switchTab(target) {
-    if (mainViewport && AppState.currentTab) {
-      tabScrollMap[AppState.currentTab] = mainViewport.scrollTop;
-    }
     AppState.currentTab = target;
     if (target === 'emom') {
       appTopBar.classList.add('hidden');
@@ -581,11 +554,9 @@
     });
 
     if (mainViewport) {
-      // EMOM is a single-screen hero timer: always ensure scrollTop is reset to 0 so the timer is immediately visible
-      const scrollPos = target === 'emom' ? 0 : (tabScrollMap[target] || 0);
-      mainViewport.scrollTop = scrollPos;
+      mainViewport.scrollTop = 0;
       requestAnimationFrame(() => {
-        mainViewport.scrollTop = scrollPos;
+        mainViewport.scrollTop = 0;
       });
     }
 
@@ -1700,7 +1671,6 @@
       });
     }
     updateSoundUI();
-    handleOrientationChange();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
