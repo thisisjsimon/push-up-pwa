@@ -1,0 +1,32 @@
+{
+  "name": "push-uppwa",
+  "version": "1.0.0",
+  "description": "A lightweight, offline-first Progressive Web App for tracking daily push-up discipline. Built with zero dependencies (except Chart.js for analytics) using vanilla HTML, CSS, and JavaScript.",
+  "main": "app.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:open": "npx cap open ios",
+    "cap:build": "npm run build && npx cap build ios"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thisisjsimon/push-up-pwa.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/thisisjsimon/push-up-pwa/issues"
+  },
+  "homepage": "https://github.com/thisisjsimon/push-up-pwa#readme",
+  "dependencies": {
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0"
+  }
+}

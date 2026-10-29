@@ -139,6 +139,32 @@ PWA features (Service Worker, Add to Home Screen) require HTTPS. For local devel
 - Export/import your data anytime via Settings → Export/Import
 - You own 100% of your data
 
+## Native iOS App (Capacitor)
+
+The repository includes a native iOS shell powered by Ionic Capacitor and Swift Package Manager (SPM). This locks the orientation to **Portrait only** on iOS (just like Instagram, Spotify, or TikTok) with zero rotation or viewport glitches.
+
+### Prerequisites
+- macOS with Xcode installed
+- Node.js & npm
+
+### Commands
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Build web bundle & sync to iOS
+npm run cap:sync
+
+# 3. Open project in Xcode
+npm run cap:open
+# or open ios/App/App.xcodeproj in Xcode
+```
+
+In Xcode:
+1. Select your target device (your connected iPhone or an iPhone Simulator).
+2. Under **Signing & Capabilities**, select your Apple Developer Team.
+3. Click **Run** (`Cmd + R`) to launch directly on your phone or distribute via TestFlight.
+
 ## Tech Stack
 
 - **HTML5** — Semantic markup, Web App meta tags
@@ -147,6 +173,7 @@ PWA features (Service Worker, Add to Home Screen) require HTTPS. For local devel
 - **Chart.js 4.4.4** — Charting library (loaded via CDN, cached by SW)
 - **IndexedDB** — Primary offline storage
 - **Service Worker** — Offline caching with cache-first strategy
+- **Capacitor 8** — Native iOS wrapper with SPM for 100% hardware-locked portrait mode
 
 ## License
 

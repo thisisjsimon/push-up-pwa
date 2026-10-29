@@ -1,0 +1,9 @@
+{
+  "appId": "com.pushup.emom",
+  "appName": "Pushup - EMOM",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#040508"
+  }
+}
