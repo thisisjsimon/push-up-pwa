@@ -336,13 +336,11 @@
         } else {
           // No workout on this day
           if (dStr < todayStr) {
-            // Day is in the past: trigger rest day automatically if available
+            // Day is in the past: trigger rest day automatically if available (Streak Freeze: count remains same, streak protected)
             if (availableRestDays > 0) {
               restDaysSet.add(dStr);
               availableRestDays = 0; // consumed
               consecutiveTrainingDays = 0; // resets counter to earn next rest day
-              currentStreak++;
-              if (currentStreak > longestStreak) longestStreak = currentStreak;
               lastActiveDate = dStr;
             } else {
               // Streak broke in past
@@ -351,11 +349,9 @@
               availableRestDays = 0;
             }
           } else if (dStr === todayStr) {
-            // Today with < 3 sets: protected by rest day if available
+            // Today with < 3 sets: protected by rest day if available (Streak Freeze: count remains same)
             if (availableRestDays > 0) {
               restDaysSet.add(dStr);
-              currentStreak++;
-              if (currentStreak > longestStreak) longestStreak = currentStreak;
               lastActiveDate = dStr;
             } else {
               // No rest day available. Keep streak if yesterday was active (today is still ongoing)

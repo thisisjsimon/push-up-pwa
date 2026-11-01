@@ -91,12 +91,10 @@ function calculateStreak(allWorkouts, effectiveDate = Dates.getEffectiveDate()) 
       if (dStr < todayStr) {
         // Day is in the past
         if (availableRestDays > 0) {
-          // Trigger rest day automatically!
+          // Trigger rest day automatically (Streak Freeze: count remains same, streak does not break)
           restDaysSet.add(dStr);
           availableRestDays = 0; // consumed
           consecutiveTrainingDays = 0; // resets counter to earn next rest day
-          currentStreak++;
-          if (currentStreak > longestStreak) longestStreak = currentStreak;
           lastActiveDate = dStr;
         } else {
           // Streak broke in the past
@@ -107,11 +105,8 @@ function calculateStreak(allWorkouts, effectiveDate = Dates.getEffectiveDate()) 
       } else if (dStr === todayStr) {
         // Day is today and user hasn't trained yet
         if (availableRestDays > 0) {
-          // Today can be protected by rest day
+          // Today can be protected by rest day (Streak Freeze: count remains same)
           restDaysSet.add(dStr);
-          // Note: rest day is protecting today, streak continues!
-          currentStreak++;
-          if (currentStreak > longestStreak) longestStreak = currentStreak;
           lastActiveDate = dStr;
         } else {
           // No rest day available.
@@ -155,7 +150,7 @@ console.log('Running test suite...');
   ];
   const res = calculateStreak(workouts, new Date('2026-11-01T12:00:00'));
   console.log('Test 1 result:', res);
-  assert.strictEqual(res.current, 5, 'Streak should be 5 on rest day today');
+  assert.strictEqual(res.current, 4, 'Streak should be frozen at 4 on rest day today');
   assert.strictEqual(res.isRestDayToday, true, 'Today is rest day');
   assert.deepStrictEqual(res.restDays, ['2026-11-01'], '2026-11-01 should be rest day');
 }
@@ -184,12 +179,12 @@ console.log('Running test suite...');
     { date: '2026-10-28', morning: { sets: [{reps:10},{reps:10},{reps:10}] } },
     { date: '2026-10-29', morning: { sets: [{reps:10},{reps:10},{reps:10}] } },
     { date: '2026-10-30', morning: { sets: [{reps:10},{reps:10},{reps:10}] } },
-    // 2026-10-31 is rest day (no workout)
-    { date: '2026-11-01', morning: { sets: [{reps:10},{reps:10},{reps:10}] } } // today trained
+    // 2026-10-31 is rest day (no workout, streak frozen at 4)
+    { date: '2026-11-01', morning: { sets: [{reps:10},{reps:10},{reps:10}] } } // today trained -> streak is 5
   ];
   const res = calculateStreak(workouts, new Date('2026-11-01T12:00:00'));
   console.log('Test 3 result:', res);
-  assert.strictEqual(res.current, 6, 'Streak is 6 (4 + 1 rest + 1 train)');
+  assert.strictEqual(res.current, 5, 'Streak is 5 (4 training + frozen rest + 1 training)');
   assert.deepStrictEqual(res.restDays, ['2026-10-31'], '2026-10-31 was rest day');
   assert.strictEqual(res.consecutiveTrainingDays, 1, '1 training day since rest day');
   assert.strictEqual(res.availableRestDays, 0, 'Rest day was consumed on 10-31');
@@ -206,7 +201,7 @@ console.log('Running test suite...');
     { date: '2026-10-25', morning: { sets: [{reps:10},{reps:10},{reps:10}] } },
     { date: '2026-10-26', morning: { sets: [{reps:10},{reps:10},{reps:10}] } },
     { date: '2026-10-27', morning: { sets: [{reps:10},{reps:10},{reps:10}] } }
-    // 2026-10-28: missed (used 1 rest day)
+    // 2026-10-28: missed (used 1 rest day, streak frozen at 8)
     // 2026-10-29: missed (streak broke!)
     // 2026-10-30: missed
     // 2026-10-31: missed
@@ -215,7 +210,7 @@ console.log('Running test suite...');
   const res = calculateStreak(workouts, new Date('2026-11-01T12:00:00'));
   console.log('Test 4 result:', res);
   assert.strictEqual(res.current, 0, 'Streak should be 0 because 2 days missed with max 1 rest day');
-  assert.strictEqual(res.longest, 9, 'Longest streak was 9 (8 workouts + 1 rest day)');
+  assert.strictEqual(res.longest, 8, 'Longest streak was 8');
   assert.deepStrictEqual(res.restDays, ['2026-10-28'], 'Only 2026-10-28 was rest day');
 }
 
@@ -242,7 +237,7 @@ console.log('Running test suite...');
     { date: '2026-09-02', morning: { sets: [{reps:10},{reps:10},{reps:10}] } },
     { date: '2026-09-03', morning: { sets: [{reps:10},{reps:10},{reps:10}] } },
     { date: '2026-09-04', morning: { sets: [{reps:10},{reps:10},{reps:10}] } },
-    // 2026-09-05 rest day
+    // 2026-09-05 rest day (frozen at 4)
     // 2026-09-06 missed -> broke!
 
     // New active streak
@@ -254,7 +249,7 @@ console.log('Running test suite...');
   const res = calculateStreak(workouts, new Date('2026-11-01T12:00:00'));
   console.log('Test 6 result:', res);
   assert.strictEqual(res.current, 4, 'Current streak is 4');
-  assert.strictEqual(res.longest, 5, 'Longest streak was 5 (from Sep)');
+  assert.strictEqual(res.longest, 4, 'Longest streak was 4');
   assert.strictEqual(res.availableRestDays, 1, 'Rest day earned on today');
   assert(res.restDays.includes('2026-09-05'), 'Historical rest day is preserved for heatmap');
 }
@@ -269,7 +264,7 @@ console.log('Running test suite...');
   ];
   // Before workout on 11-01:
   const before = calculateStreak(base, new Date('2026-11-01T09:00:00'));
-  assert.strictEqual(before.current, 5);
+  assert.strictEqual(before.current, 4, 'Streak stays frozen at 4 on rest day');
   assert.strictEqual(before.isRestDayToday, true);
   assert.strictEqual(before.restDays.includes('2026-11-01'), true);
 
@@ -279,7 +274,7 @@ console.log('Running test suite...');
     { date: '2026-11-01', morning: { sets: [{reps:15},{reps:15},{reps:15}] } }
   ];
   const after = calculateStreak(afterWorkouts, new Date('2026-11-01T18:00:00'));
-  assert.strictEqual(after.current, 5);
+  assert.strictEqual(after.current, 5, 'Streak increments to 5 on training day');
   assert.strictEqual(after.isRestDayToday, false);
   assert.strictEqual(after.restDays.includes('2026-11-01'), false);
   assert.strictEqual(after.availableRestDays, 1, 'Rest day was NOT consumed and is saved for later!');
