@@ -8,10 +8,7 @@
   },
   "scripts": {
     "test": "node scripts/test-streak.js",
-    "build": "node scripts/build.js",
-    "cap:sync": "npm run build && npx cap sync",
-    "cap:open": "npx cap open ios",
-    "cap:build": "npm run build && npx cap build ios"
+    "build": "node scripts/build.js"
   },
   "repository": {
     "type": "git",
@@ -24,10 +21,5 @@
   "bugs": {
     "url": "https://github.com/thisisjsimon/push-up-pwa/issues"
   },
-  "homepage": "https://github.com/thisisjsimon/push-up-pwa#readme",
-  "dependencies": {
-    "@capacitor/cli": "^8.6.0",
-    "@capacitor/core": "^8.6.0",
-    "@capacitor/ios": "^8.6.0"
-  }
+  "homepage": "https://github.com/thisisjsimon/push-up-pwa#readme"
 }
