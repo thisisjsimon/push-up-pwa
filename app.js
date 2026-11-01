@@ -275,7 +275,15 @@
   const Streak = {
     async calculate(allWorkouts) {
       if (!allWorkouts || allWorkouts.length === 0) {
-        return { current: 0, longest: 0, lastDate: null };
+        return {
+          current: 0,
+          longest: 0,
+          lastDate: null,
+          restDays: [],
+          availableRestDays: 0,
+          consecutiveTrainingDays: 0,
+          isRestDayToday: false
+        };
       }
       const validWorkouts = allWorkouts.filter(w => {
         const morningSets = (w.morning?.sets || []).filter(s => (Number(s.reps) || 0) > 0).length;
@@ -285,26 +293,94 @@
         return totalSets >= 3;
       }).sort((a, b) => a.date.localeCompare(b.date));
 
-      if (validWorkouts.length === 0) return { current: 0, longest: 0, lastDate: null };
-
-      let currentStreak = 1;
-      let longestStreak = 1;
-      for (let i = 1; i < validWorkouts.length; i++) {
-        const diff = Dates.daysBetween(new Date(validWorkouts[i].date), new Date(validWorkouts[i - 1].date));
-        if (diff === 1) {
-          currentStreak++;
-          if (currentStreak > longestStreak) longestStreak = currentStreak;
-        } else if (diff > 1) {
-          currentStreak = 1;
-        }
+      if (validWorkouts.length === 0) {
+        return {
+          current: 0,
+          longest: 0,
+          lastDate: null,
+          restDays: [],
+          availableRestDays: 0,
+          consecutiveTrainingDays: 0,
+          isRestDayToday: false
+        };
       }
 
-      const lastValidDate = validWorkouts[validWorkouts.length - 1].date;
-      const today = Dates.formatDate(Dates.getEffectiveDate());
-      const yesterday = Dates.formatDate(Dates.addDays(Dates.getEffectiveDate(), -1));
-      if (lastValidDate !== today && lastValidDate !== yesterday) currentStreak = 0;
+      const validDatesSet = new Set(validWorkouts.map(w => w.date));
+      const effectiveDate = Dates.getEffectiveDate();
+      const todayStr = Dates.formatDate(effectiveDate);
+      const firstDateStr = validWorkouts[0].date;
 
-      return { current: currentStreak, longest: longestStreak, lastDate: lastValidDate };
+      let curr = new Date(firstDateStr + 'T00:00:00');
+      const endDateStr = firstDateStr > todayStr ? firstDateStr : todayStr;
+      const end = new Date(endDateStr + 'T00:00:00');
+
+      let currentStreak = 0;
+      let longestStreak = 0;
+      let consecutiveTrainingDays = 0;
+      let availableRestDays = 0;
+      const restDaysSet = new Set();
+      let lastActiveDate = null;
+
+      while (curr <= end) {
+        const dStr = Dates.formatDate(curr);
+        const hasValidWorkout = validDatesSet.has(dStr);
+
+        if (hasValidWorkout) {
+          consecutiveTrainingDays++;
+          if (consecutiveTrainingDays >= 4) {
+            availableRestDays = 1; // 4 trainings give 1 rest day (capped at 1, cannot stack)
+          }
+          currentStreak++;
+          if (currentStreak > longestStreak) longestStreak = currentStreak;
+          lastActiveDate = dStr;
+        } else {
+          // No workout on this day
+          if (dStr < todayStr) {
+            // Day is in the past: trigger rest day automatically if available
+            if (availableRestDays > 0) {
+              restDaysSet.add(dStr);
+              availableRestDays = 0; // consumed
+              consecutiveTrainingDays = 0; // resets counter to earn next rest day
+              currentStreak++;
+              if (currentStreak > longestStreak) longestStreak = currentStreak;
+              lastActiveDate = dStr;
+            } else {
+              // Streak broke in past
+              currentStreak = 0;
+              consecutiveTrainingDays = 0;
+              availableRestDays = 0;
+            }
+          } else if (dStr === todayStr) {
+            // Today with < 3 sets: protected by rest day if available
+            if (availableRestDays > 0) {
+              restDaysSet.add(dStr);
+              currentStreak++;
+              if (currentStreak > longestStreak) longestStreak = currentStreak;
+              lastActiveDate = dStr;
+            } else {
+              // No rest day available. Keep streak if yesterday was active (today is still ongoing)
+              const yesterdayStr = Dates.formatDate(Dates.addDays(effectiveDate, -1));
+              if (lastActiveDate !== yesterdayStr) {
+                currentStreak = 0;
+              }
+            }
+          }
+        }
+
+        curr = Dates.addDays(curr, 1);
+      }
+
+      const isRestDayToday = restDaysSet.has(todayStr);
+
+      return {
+        current: currentStreak,
+        longest: longestStreak,
+        lastDate: lastActiveDate,
+        restDays: Array.from(restDaysSet),
+        availableRestDays: isRestDayToday ? 1 : availableRestDays,
+        consecutiveTrainingDays,
+        isRestDayToday
+      };
     },
 
     async update() {
@@ -315,6 +391,7 @@
       await DB.setMeta('streak', newStreak);
       AppState.streak = newStreak;
       updateStreakUI();
+      updateRestDayBannerUI();
     }
   };
 
@@ -795,9 +872,47 @@
   // 10. STREAK UI UPDATE
   // ============================================================
   function updateStreakUI() {
-    const count = AppState.streak.current;
-    const el = document.getElementById('header-streak-count');
-    if (el) el.textContent = count;
+    const streak = AppState.streak || { current: 0, longest: 0, availableRestDays: 0, isRestDayToday: false, consecutiveTrainingDays: 0 };
+    const count = streak.current || 0;
+    const headerEl = document.getElementById('header-streak-count');
+    if (headerEl) {
+      headerEl.textContent = count;
+      if (headerEl.parentElement) {
+        headerEl.parentElement.title = streak.isRestDayToday
+          ? `Streak: ${count} Tage (Ruhetag aktiv 🛡️)`
+          : streak.availableRestDays > 0
+            ? `Streak: ${count} Tage (1 Ruhetag bereit 🛡️)`
+            : `Streak: ${count} Tage`;
+      }
+    }
+    const kpiEl = document.getElementById('kpi-current-streak');
+    if (kpiEl) kpiEl.textContent = count;
+    const kpiLongest = document.getElementById('kpi-longest-streak');
+    if (kpiLongest) kpiLongest.textContent = streak.longest || 0;
+
+    const kpiSub = document.getElementById('kpi-streak-subtext');
+    if (kpiSub) {
+      if (streak.isRestDayToday) {
+        kpiSub.textContent = '🛡️ Ruhetag aktiv';
+      } else if (streak.availableRestDays > 0) {
+        kpiSub.textContent = '🛡️ 1 Ruhetag bereit';
+      } else {
+        const remaining = 4 - (streak.consecutiveTrainingDays % 4 || 0);
+        kpiSub.textContent = `Noch ${remaining} ${remaining === 1 ? 'Tag' : 'Tage'} bis Ruhetag`;
+      }
+    }
+  }
+
+  function updateRestDayBannerUI() {
+    const banner = document.getElementById('rest-day-today-banner');
+    if (!banner) return;
+    if (AppState.streak?.isRestDayToday) {
+      banner.classList.remove('hidden');
+      banner.classList.add('flex');
+    } else {
+      banner.classList.add('hidden');
+      banner.classList.remove('flex');
+    }
   }
 
   // ============================================================
@@ -1164,6 +1279,8 @@
 
   async function buildHeatmapData() {
     const allWorkouts = await DB.getAllWorkouts();
+    const streakResult = await Streak.calculate(allWorkouts);
+    const restDaysSet = new Set(streakResult.restDays || []);
     const wMap = {};
     allWorkouts.forEach(w => { wMap[w.date] = w; });
 
@@ -1181,6 +1298,7 @@
       const total = morningTotal + eveningTotal + emomTotal;
       const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
       const mmdd = Dates.formatMMDD(d);
+      const isRestDay = restDaysSet.has(dateStr);
       days.push({
         date: dateStr,
         label,
@@ -1190,7 +1308,8 @@
         eveningTotal,
         emomTotal,
         total,
-        workoutData: w
+        workoutData: w,
+        isRestDay
       });
     }
     AppState.heatmapDays = days;
@@ -1256,10 +1375,14 @@
           cellsHTML += `<div class="w-full aspect-square rounded-[4px] heat-0"></div>`;
           continue;
         }
-        const heatClass = getHeatLevelClass(dayObj.total);
+        const isRestDay = dayObj.isRestDay;
+        const heatClass = isRestDay ? 'heat-rest' : getHeatLevelClass(dayObj.total);
         const isSelected = idx === selectedIdx;
         const ringStyle = isSelected ? 'ring-2 ring-white scale-110 z-10' : 'hover:ring-1 hover:ring-white/50';
-        cellsHTML += `<button data-date="${dayObj.date}" title="${dayObj.label}: ${dayObj.total} reps" class="heatmap-cell w-full aspect-square rounded-[4px] ${heatClass} ${ringStyle} transition-transform"></button>`;
+        const cellTitle = isRestDay
+          ? `${dayObj.label}: Ruhetag (Streak geschützt)`
+          : `${dayObj.label}: ${dayObj.total} reps`;
+        cellsHTML += `<button data-date="${dayObj.date}" title="${cellTitle}" class="heatmap-cell w-full aspect-square rounded-[4px] ${heatClass} ${ringStyle} transition-transform"></button>`;
       }
       colsHTML += `<div class="flex flex-col gap-1.5">${cellsHTML}</div>`;
     }
@@ -1277,8 +1400,23 @@
     const selDay = days[selectedIdx >= 0 ? selectedIdx : TODAY_INDEX];
     const selTitle = document.getElementById('selected-day-title');
     if (selTitle) {
-      selTitle.textContent = selDay.date === todayDate ? `${selDay.label} (Today)` : selDay.label;
+      let titleText = selDay.date === todayDate ? `${selDay.label} (Today)` : selDay.label;
+      if (selDay.isRestDay) titleText += ' · Ruhetag 🛡️';
+      selTitle.textContent = titleText;
     }
+
+    const restBadge = document.getElementById('inspector-rest-badge');
+    if (restBadge) {
+      if (selDay.isRestDay) {
+        restBadge.classList.remove('hidden');
+        restBadge.classList.add('flex');
+      } else {
+        restBadge.classList.add('hidden');
+        restBadge.classList.remove('flex');
+      }
+    }
+
+    updateStreakUI();
 
     document.getElementById('inspector-morning').textContent = `${selDay.morningTotal} reps`;
     document.getElementById('inspector-evening').textContent = `${selDay.eveningTotal} reps`;
